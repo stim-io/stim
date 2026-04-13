@@ -1,0 +1,16 @@
+[workspace]
+members = [
+  "apps/tauri/src-tauri",
+  "apps/controller",
+  "crates/shared",
+  "crates/stim-dev-cli"
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+version = "0.1.0"
+
+[workspace.dependencies]
+stim-shared = { path = "crates/shared" }
