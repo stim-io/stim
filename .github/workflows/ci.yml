@@ -6,6 +6,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   verify:
     runs-on: macos-latest
@@ -22,12 +26,19 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: '@stim-io'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install JS dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
 
       - name: Cargo check shared surfaces
         run: cargo check -p stim-shared -p stim-dev-cli -p stim-controller
