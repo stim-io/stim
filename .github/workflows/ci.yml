@@ -22,11 +22,15 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: '@stim-io'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install JS dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm install --frozen-lockfile
 
       - name: Check formatting
