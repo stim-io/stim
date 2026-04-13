@@ -1,0 +1,8 @@
+[package]
+name = "stim-controller"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+stim-shared.workspace = true
