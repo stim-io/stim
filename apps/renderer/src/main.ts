@@ -5,9 +5,9 @@ import { setupInspectionProbes } from "./inspection/probes";
 import { applyTheme } from "./styles/bootstrap";
 
 async function bootstrap() {
-    await applyTheme();
-    await setupInspectionProbes();
-    createApp(App).mount("#app");
+  await applyTheme();
+  await setupInspectionProbes();
+  createApp(App).mount("#app");
 }
 
 void bootstrap();

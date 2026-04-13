@@ -29,6 +29,9 @@ jobs:
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check formatting
+        run: pnpm format:check
+
       - name: Cargo check shared surfaces
         run: cargo check -p stim-shared -p stim-dev-cli -p stim-controller
 

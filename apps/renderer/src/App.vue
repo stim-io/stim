@@ -10,8 +10,9 @@ import { StimButton } from "@stim-io/stim-components";
         Agent-native messaging, starting with a strict desktop landing.
       </h1>
       <p class="landing-copy">
-        This first slice proves the renderer, Tauri shell, and shared component/theme boundary without
-        letting host or runtime concerns leak into the UI surface.
+        This first slice proves the renderer, Tauri shell, and shared
+        component/theme boundary without letting host or runtime concerns leak
+        into the UI surface.
       </p>
       <div class="landing-actions" data-probe="landing-actions">
         <StimButton label="Open the loop" />

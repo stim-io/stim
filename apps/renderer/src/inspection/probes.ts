@@ -51,7 +51,9 @@ function primaryActionLabel(): string | null {
   return textContentFor('[data-probe="landing-actions"] button');
 }
 
-function buildLandingBasicsResponse(request: RendererProbeRequest): RendererProbeResponse {
+function buildLandingBasicsResponse(
+  request: RendererProbeRequest,
+): RendererProbeResponse {
   return {
     request_id: request.request_id,
     requested_at: request.requested_at,
@@ -63,8 +65,12 @@ function buildLandingBasicsResponse(request: RendererProbeRequest): RendererProb
           kind: "landing-basics",
           document_ready_state: document.readyState,
           document_title: document.title,
-          landing_shell_present: Boolean(document.querySelector('[data-probe="landing-shell"]')),
-          landing_card_present: Boolean(document.querySelector('[data-probe="landing-card"]')),
+          landing_shell_present: Boolean(
+            document.querySelector('[data-probe="landing-shell"]'),
+          ),
+          landing_card_present: Boolean(
+            document.querySelector('[data-probe="landing-card"]'),
+          ),
           landing_title_text: textContentFor('[data-probe="landing-title"]'),
           primary_action_label: primaryActionLabel(),
         },
@@ -73,7 +79,9 @@ function buildLandingBasicsResponse(request: RendererProbeRequest): RendererProb
   };
 }
 
-function buildFailureResponse(request: RendererProbeRequest): RendererProbeResponse {
+function buildFailureResponse(
+  request: RendererProbeRequest,
+): RendererProbeResponse {
   return {
     request_id: request.request_id,
     requested_at: request.requested_at,
@@ -88,9 +96,10 @@ async function handleProbeRequest(request: RendererProbeRequest) {
   const { emit } = await import("@tauri-apps/api/event");
 
   try {
-    const response = request.probe.probe === "landing-basics"
-      ? buildLandingBasicsResponse(request)
-      : buildFailureResponse(request);
+    const response =
+      request.probe.probe === "landing-basics"
+        ? buildLandingBasicsResponse(request)
+        : buildFailureResponse(request);
 
     await emit(RESPONSE_EVENT, response);
   } catch {
