@@ -44,7 +44,7 @@ That includes:
 - routes, screens, and app bootstrap
 - feature-level UI composition
 - local presentation state and view models
-- app-level business components composed from `stim-components`
+- app-level business components composed from `stim-packages`
 - service-consumption adapters used by the app
 
 `src/` should not become the long-term home for:
@@ -109,7 +109,7 @@ It should not become:
 - business-oriented widgets
 - layout glue around shared atoms
 
-It should not absorb ownership that belongs in `stim-components/`, such as:
+It should not absorb ownership that belongs in `stim-packages/`, such as:
 
 - atomic reusable component primitives
 - canonical theme definitions
@@ -218,7 +218,7 @@ Do not introduce or extend these patterns:
 
 - feature UI code importing deep `src-tauri` runtime logic directly
 - service HTTP clients mixed into Tauri command modules
-- app-local components reimplementing atomic component ownership from `stim-components`
+- app-local components reimplementing atomic component ownership from `stim-packages`
 - one generic `utils/` bucket quietly becoming the home of contracts, policy, and business logic
 - `platform/` or `services/` becoming catch-all dumping grounds with no ownership discipline
 

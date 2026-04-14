@@ -1,15 +1,7 @@
 {
-  "name": "@stim-io/renderer",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "typecheck": "vue-tsc --noEmit"
-  },
   "dependencies": {
+    "@stim-io/components": "file:../../../stim-packages/packages/components",
     "@tauri-apps/api": "^2.10.1",
-    "@stim-io/stim-components": "0.1.0",
     "vue": "^3.5.32"
   },
   "devDependencies": {
@@ -17,5 +9,13 @@
     "typescript": "^6.0.2",
     "vite": "^8.0.8",
     "vue-tsc": "^3.2.6"
-  }
+  },
+  "name": "@stim-io/renderer",
+  "private": true,
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "type": "module"
 }

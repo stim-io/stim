@@ -3,15 +3,6 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.32.1",
-  "scripts": {
-    "dev": "cargo run -p stim-dev-cli -- start",
-    "dev:renderer": "cargo run -p stim-dev-cli -- start renderer",
-    "dev:tauri": "cargo run -p stim-dev-cli -- start tauri",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "build:renderer": "pnpm --dir apps/renderer build",
-    "typecheck:renderer": "pnpm --dir apps/renderer typecheck"
-  },
   "devDependencies": {
     "prettier": "^3.6.2"
   }

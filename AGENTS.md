@@ -20,7 +20,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Real product/business communication should converge on explicit HTTP / SSE / WebSocket contracts exposed by owned services.
 - Dev/prod differences belong in bootstrap, config, and provider/resource selection, not in the core identity of product features or control-plane contracts.
 - Prefer a small number of stable client primitives over premature abstraction or framework layering.
-- `stim-components/` owns atomic Vue components, layout primitives, and theme definitions; `stim/` composes them into product-facing screens and business components but should not become the new home for visual styling logic.
+- `stim-packages/` owns atomic Vue components, layout primitives, and theme definitions through package boundaries like `@stim-io/components`; `stim/` composes them into product-facing screens and business components but should not become the new home for visual styling logic.
 - Keep shared product semantics explicit and durable; do not let platform-specific workarounds redefine product behavior.
 - If a boundary is still unclear, prefer documenting the intended ownership split first, then let real implementation pressure refine it.
 
@@ -30,6 +30,18 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Keep force-push protection and branch-deletion protection enabled for `main`.
 - Keep squash merge as the default history strategy.
 - Keep required green checks in front of merge once `.github/workflows/ci.yml` is active.
+
+## Common Commands
+
+- Format workspace: `pnpm exec prettier --write .`
+- Check formatting: `pnpm exec prettier --check .`
+- Start full local app loop: `cargo run -p stim-dev-cli -- start`
+- Start renderer-focused loop: `cargo run -p stim-dev-cli -- start renderer`
+- Start Tauri-focused loop: `cargo run -p stim-dev-cli -- start tauri`
+- Run renderer dev server directly: `pnpm -C apps/renderer dev`
+- Build renderer directly: `pnpm -C apps/renderer build`
+- Typecheck renderer directly: `pnpm -C apps/renderer typecheck`
+- Run Tauri CLI directly: `pnpm -C apps/tauri tauri`
 
 ## Reference Project Index
 
@@ -52,7 +64,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - `docs/architecture/structure.md`: durable directory ownership and structure rules for app, service, and Tauri host code
 - `docs/architecture/layers/principles.md`: durable client layering and ownership rules
 - `docs/architecture/desktop/tauri-boundary.md`: boundary between the Tauri host, web app, and local runtime/service processes
-- `docs/architecture/product/workspace-boundary.md`: boundary between `stim`, `stim-components`, `stim-server`, and `santi`
+- `docs/architecture/product/workspace-boundary.md`: boundary between `stim`, `stim-packages`, `stim-server`, and `santi`
 - `.github/workflows/ci.yml`: minimal continuous-integration baseline for renderer and Rust support surfaces
 - `../../AGENTS.md`: repo-root workspace boundary across all attached repos
 

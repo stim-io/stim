@@ -9,7 +9,7 @@ Prefer the following high-level split:
 - **app/product layer**: product routes, screens, business-facing components, local presentation state
 - **service-consumption layer**: API clients, streaming clients, request/retry policy, server/runtime contract adaptation
 - **host/control layer**: Tauri host integration, local runtime control, diagnostics, and platform capability bridging
-- **presentation foundation**: composition of atoms and layout primitives from `stim-components/` plus app-level screen assembly
+- **presentation foundation**: composition of atoms and layout primitives from `stim-packages/` plus app-level screen assembly
 
 Exact directory names may evolve. The ownership split should not.
 
@@ -21,11 +21,11 @@ Screens and feature flows should consume app-local services or view models rathe
 
 ### 1.1 Product composition stays above visual styling authority
 
-`stim` should primarily assemble screens from `stim-components` atoms and layout primitives.
+`stim` should primarily assemble screens from `stim-packages` atoms and layout primitives.
 
 Do not treat product-local CSS or ad hoc visual patches as the normal place to solve spacing, color, typography, or layout-expression friction.
 
-When visual composition pressure reveals a missing primitive, missing token, or missing layout capability, the default response should be to improve `stim-components/` rather than re-own styling logic inside `stim/`.
+When visual composition pressure reveals a missing primitive, missing token, or missing layout capability, the default response should be to improve `stim-packages/` rather than re-own styling logic inside `stim/`.
 
 ### 2. Service clients stay separate from host-control clients
 
@@ -83,8 +83,8 @@ Do not introduce or extend these patterns:
 - product screens directly orchestrating Tauri host runtime logic
 - Tauri commands becoming the de facto business API surface
 - platform-specific hacks mixed into shared product semantics
-- `stim` re-owning atomic component/theme responsibilities already assigned to `stim-components/`
-- `stim` accumulating product-local CSS or visual patch layers that should be solved in `stim-components/`
+- `stim` re-owning atomic component/theme responsibilities already assigned to `stim-packages/`
+- `stim` accumulating product-local CSS or visual patch layers that should be solved in `stim-packages/`
 - client code importing server/runtime implementation assumptions instead of consuming stable contracts
 - feature-by-feature local IPC naming schemes with no unified isolation strategy
 
@@ -94,7 +94,7 @@ Before adding a new client feature, ask:
 
 1. Is this product UI composition, host capability wiring, or real service communication?
 2. Does it preserve the distinction between host control plane and business service plane?
-3. Does it keep atomic component/layout/theme ownership in `stim-components/`?
+3. Does it keep atomic component/layout/theme ownership in `stim-packages/`?
 4. Would the same feature still make sense if the platform host changed?
 5. If shared contracts are needed, is there one canonical definition?
 

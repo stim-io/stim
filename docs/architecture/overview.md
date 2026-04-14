@@ -31,7 +31,7 @@ It owns:
 
 - product screens and navigation
 - client-side state needed to present and interact with product features
-- composition of atomic UI pieces from `stim-components/` into business components and screens
+- composition of atomic UI pieces from `stim-packages/` into business components and screens
 - platform-safe client behavior and interaction policy
 
 It should not become the new home for:
@@ -89,7 +89,7 @@ They should not differ in the core identity of product features or in the meanin
 
 ## UI composition rule
 
-`stim-components/` owns atomic Vue components, layout primitives, and theme definitions.
+`stim-packages/` owns atomic Vue components, layout primitives, and theme definitions.
 
 `stim/` may:
 
@@ -99,7 +99,7 @@ They should not differ in the core identity of product features or in the meanin
 
 `stim/` should not absorb the atomic component, layout, or theme-definition boundary back into the product repo.
 
-`stim/` should treat visual styling friction as a `stim-components/` problem to solve rather than a reason to add product-local CSS or visual patch layers. The product repo is the composition surface, not the visual styling authority.
+`stim/` should treat visual styling friction as a `stim-packages/` problem to solve rather than a reason to add product-local CSS or visual patch layers. The product repo is the composition surface, not the visual styling authority.
 
 ## Success condition
 
@@ -108,5 +108,5 @@ The framework boundary is healthy when all of the following stay true:
 - `stim` remains the product application layer
 - host-specific code remains a host layer rather than the product brain
 - real business communication stays on explicit service contracts
-- product screens compose `stim-components` rather than replacing its ownership boundary
+- product screens compose `stim-packages` rather than replacing its ownership boundary
 - server-side and agent-side semantics stay behind `stim-server/` and `santi/`
