@@ -1,0 +1,960 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "stim-server",
+    "description": "",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    },
+    "version": "0.1.0-dev.0"
+  },
+  "paths": {
+    "/api/v1/discovery/endpoints/{endpoint_id}": {
+      "get": {
+        "tags": [
+          "discovery"
+        ],
+        "operationId": "discover_endpoint",
+        "parameters": [
+          {
+            "name": "endpoint_id",
+            "in": "path",
+            "description": "Declared endpoint identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Discovered endpoint record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryRecord"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Endpoint not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "discovery"
+        ],
+        "operationId": "register_endpoint",
+        "parameters": [
+          {
+            "name": "endpoint_id",
+            "in": "path",
+            "description": "Declared endpoint identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoveryRecord"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Registered discovery record",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Path/body mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Health check response",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AcknowledgementResult": {
+        "type": "string",
+        "enum": [
+          "applied",
+          "version_conflict",
+          "invalid_state_transition",
+          "unsupported_content",
+          "unknown_conversation",
+          "unauthorized_mutation"
+        ]
+      },
+      "AssetRefPart": {
+        "type": "object",
+        "required": [
+          "part_id",
+          "revision",
+          "asset_ref"
+        ],
+        "properties": {
+          "asset_ref": {
+            "type": "string"
+          },
+          "metadata": {},
+          "mime_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "part_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "CapabilityRefPart": {
+        "type": "object",
+        "required": [
+          "part_id",
+          "revision",
+          "capability_kind",
+          "capability_id"
+        ],
+        "properties": {
+          "capability_id": {
+            "type": "string"
+          },
+          "capability_kind": {
+            "type": "string"
+          },
+          "input_schema_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {},
+          "part_id": {
+            "type": "string"
+          },
+          "resource_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ContentPart": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TextPart"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "text"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AssetRefPart"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "asset_ref"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DomFragmentPart"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "dom_fragment"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CapabilityRefPart"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "capability_ref"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "DeliveryReceipt": {
+        "type": "object",
+        "required": [
+          "envelope_id",
+          "result"
+        ],
+        "properties": {
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "envelope_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "result": {
+            "$ref": "#/components/schemas/DeliveryReceiptResult"
+          }
+        }
+      },
+      "DeliveryReceiptResult": {
+        "type": "string",
+        "enum": [
+          "accepted",
+          "rejected",
+          "unreachable",
+          "timed_out"
+        ]
+      },
+      "DeliveryTarget": {
+        "type": "object",
+        "required": [
+          "node_id",
+          "carrier_kind",
+          "selected_address",
+          "protocol_version"
+        ],
+        "properties": {
+          "carrier_kind": {
+            "type": "string"
+          },
+          "node_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "protocol_version": {
+            "$ref": "#/components/schemas/String"
+          },
+          "selected_address": {
+            "$ref": "#/components/schemas/String"
+          }
+        }
+      },
+      "DiscoveryRecord": {
+        "type": "object",
+        "required": [
+          "node_id",
+          "endpoint_declaration",
+          "carrier_kind",
+          "addresses",
+          "protocol_versions"
+        ],
+        "properties": {
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/String"
+            }
+          },
+          "carrier_kind": {
+            "type": "string"
+          },
+          "endpoint_declaration": {
+            "$ref": "#/components/schemas/EndpointDeclaration"
+          },
+          "node_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "protocol_versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/String"
+            }
+          }
+        }
+      },
+      "DomFragmentPart": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DomFragmentPayload"
+          },
+          {
+            "type": "object",
+            "required": [
+              "part_id",
+              "revision"
+            ],
+            "properties": {
+              "metadata": {},
+              "part_id": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
+      "DomFragmentPayload": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "tree",
+              "format"
+            ],
+            "properties": {
+              "bindings": {},
+              "format": {
+                "type": "string",
+                "enum": [
+                  "stim-dom-fragment/v1"
+                ]
+              },
+              "tree": {}
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "html",
+              "format"
+            ],
+            "properties": {
+              "bindings": {},
+              "format": {
+                "type": "string",
+                "enum": [
+                  "raw_html"
+                ]
+              },
+              "html": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "EncryptionScope": {
+        "type": "object",
+        "required": [
+          "scope_kind"
+        ],
+        "properties": {
+          "scope_kind": {
+            "type": "string"
+          },
+          "session_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/String"
+              }
+            ]
+          }
+        }
+      },
+      "EndpointDeclaration": {
+        "type": "object",
+        "required": [
+          "endpoint_id",
+          "node_id",
+          "supported_protocol_versions",
+          "supported_carriers",
+          "content_capabilities",
+          "security_capabilities",
+          "declared_features"
+        ],
+        "properties": {
+          "content_capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "declared_features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "display_label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endpoint_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "endpoint_kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "node_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "security_capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supported_carriers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supported_protocol_versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/String"
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "InsertOperation": {
+        "type": "object",
+        "required": [
+          "index",
+          "part"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "part": {
+            "$ref": "#/components/schemas/ContentPart"
+          }
+        }
+      },
+      "LayoutHint": {
+        "type": "object",
+        "properties": {
+          "layout_family": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max_height_px": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "metadata": {},
+          "min_height_px": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "vertical_pressure": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "MessageContent": {
+        "type": "object",
+        "required": [
+          "parts"
+        ],
+        "properties": {
+          "layout_hint": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LayoutHint"
+              }
+            ]
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentPart"
+            }
+          }
+        }
+      },
+      "MessageEnvelope": {
+        "type": "object",
+        "required": [
+          "protocol_version",
+          "envelope_id",
+          "message_id",
+          "conversation_id",
+          "sender_node_id",
+          "sender_endpoint_id",
+          "created_at",
+          "recipient_key_refs",
+          "state",
+          "operation",
+          "new_version",
+          "payload"
+        ],
+        "properties": {
+          "base_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "conversation_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "encryption_scope": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EncryptionScope"
+              }
+            ]
+          },
+          "envelope_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "integrity_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "new_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "operation": {
+            "$ref": "#/components/schemas/MessageOperation"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/MutationPayload"
+          },
+          "protocol_version": {
+            "$ref": "#/components/schemas/String"
+          },
+          "recipient_key_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/String"
+            }
+          },
+          "sender_assertion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SenderAssertion"
+              }
+            ]
+          },
+          "sender_endpoint_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "sender_node_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "session_bootstrap": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SessionBootstrap"
+              }
+            ]
+          },
+          "signature_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/MessageState"
+          }
+        }
+      },
+      "MessageOperation": {
+        "type": "string",
+        "enum": [
+          "create",
+          "patch",
+          "insert",
+          "remove",
+          "fix"
+        ]
+      },
+      "MessageState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "fixed"
+        ]
+      },
+      "MutationPayload": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "content",
+              "operation"
+            ],
+            "properties": {
+              "content": {
+                "$ref": "#/components/schemas/MessageContent"
+              },
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "create"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "patches",
+              "operation"
+            ],
+            "properties": {
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "patch"
+                ]
+              },
+              "patches": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PatchOperation"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "items",
+              "operation"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/InsertOperation"
+                }
+              },
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "insert"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "indexes",
+              "operation"
+            ],
+            "properties": {
+              "indexes": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "remove"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "operation"
+            ],
+            "properties": {
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "fix"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "PatchOperation": {
+        "type": "object",
+        "required": [
+          "index",
+          "merge"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "merge": {}
+        }
+      },
+      "ProtocolAcknowledgement": {
+        "type": "object",
+        "required": [
+          "ack_envelope_id",
+          "ack_message_id",
+          "ack_version",
+          "ack_result"
+        ],
+        "properties": {
+          "ack_envelope_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "ack_message_id": {
+            "$ref": "#/components/schemas/String"
+          },
+          "ack_result": {
+            "$ref": "#/components/schemas/AcknowledgementResult"
+          },
+          "ack_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SenderAssertion": {
+        "type": "object",
+        "required": [
+          "assertion_kind"
+        ],
+        "properties": {
+          "assertion_kind": {
+            "type": "string"
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SessionBootstrap": {
+        "type": "object",
+        "required": [
+          "participants",
+          "created_by",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "$ref": "#/components/schemas/String"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/String"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/String"
+            }
+          }
+        }
+      },
+      "String": {
+        "type": "string"
+      },
+      "TextPart": {
+        "type": "object",
+        "required": [
+          "part_id",
+          "revision",
+          "text"
+        ],
+        "properties": {
+          "metadata": {},
+          "part_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "health"
+    },
+    {
+      "name": "discovery"
+    }
+  ]
+}

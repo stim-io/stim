@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@stim-io/client": "workspace:*",
     "@stim-io/components": "file:../../../stim-packages/packages/components",
     "@tauri-apps/api": "^2.10.1",
     "vue": "^3.5.32"

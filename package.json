@@ -3,7 +3,15 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "build:renderer": "pnpm -C apps/renderer build",
+    "format:check": "pnpm exec prettier --check .",
+    "generate:client": "pnpm -C packages/client generate",
+    "typecheck:client": "pnpm -C packages/client typecheck",
+    "typecheck:renderer": "pnpm -C apps/renderer typecheck"
+  },
   "devDependencies": {
+    "@hey-api/openapi-ts": "0.91.0",
     "prettier": "^3.6.2"
   }
 }

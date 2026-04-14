@@ -1,0 +1,13 @@
+[2026-04-14T09:29:07.515Z] Error: Invalid Hey API shorthand format. Expected "organization/project?queryParams" or "organization/project", received: openapi/stim-server.json
+Stack:
+Error: Invalid Hey API shorthand format. Expected "organization/project?queryParams" or "organization/project", received: openapi/stim-server.json
+    at parseShorthand$2 (file:///Users/zqxy123/Projects/stim.io/modules/stim/node_modules/.pnpm/@hey-api+shared@0.1.0_typescript@6.0.2/node_modules/@hey-api/shared/dist/index.mjs:292:21)
+    at inputToHeyApiPath (file:///Users/zqxy123/Projects/stim.io/modules/stim/node_modules/.pnpm/@hey-api+shared@0.1.0_typescript@6.0.2/node_modules/@hey-api/shared/dist/index.mjs:312:17)
+    at inputToApiRegistry (file:///Users/zqxy123/Projects/stim.io/modules/stim/node_modules/.pnpm/@hey-api+shared@0.1.0_typescript@6.0.2/node_modules/@hey-api/shared/dist/index.mjs:431:24)
+    at getInput (file:///Users/zqxy123/Projects/stim.io/modules/stim/node_modules/.pnpm/@hey-api+shared@0.1.0_typescript@6.0.2/node_modules/@hey-api/shared/dist/index.mjs:476:39)
+    at expandToJobs (file:///Users/zqxy123/Projects/stim.io/modules/stim/node_modules/.pnpm/@hey-api+openapi-ts@0.91.0_typescript@6.0.2/node_modules/@hey-api/openapi-ts/dist/init-kvO44gnv.mjs:19:18)
+    at resolveJobs (file:///Users/zqxy123/Projects/stim.io/modules/stim/node_modules/.pnpm/@hey-api+openapi-ts@0.91.0_typescript@6.0.2/node_modules/@hey-api/openapi-ts/dist/init-kvO44gnv.mjs:13552:36)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async createClient (file:///Users/zqxy123/Projects/stim.io/modules/stim/node_modules/.pnpm/@hey-api+openapi-ts@0.91.0_typescript@6.0.2/node_modules/@hey-api/openapi-ts/dist/src-Dmlg6WRV.mjs:167:20)
+    at async Command.<anonymous> (file:///Users/zqxy123/Projects/stim.io/modules/stim/node_modules/.pnpm/@hey-api+openapi-ts@0.91.0_typescript@6.0.2/node_modules/@hey-api/openapi-ts/dist/run.mjs:38:8)
+    at async Command.parseAsync (/Users/zqxy123/Projects/stim.io/modules/stim/node_modules/.pnpm/commander@14.0.2/node_modules/commander/lib/command.js:1122:5)

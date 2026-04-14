@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           registry-url: https://npm.pkg.github.com
           scope: '@stim-io'
@@ -40,8 +40,14 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      - name: Generate server client
+        run: pnpm generate:client
+
       - name: Cargo check shared surfaces
         run: cargo check -p stim-shared -p stim-dev-cli -p stim-controller
+
+      - name: Typecheck generated client
+        run: pnpm typecheck:client
 
       - name: Typecheck renderer
         run: pnpm typecheck:renderer
