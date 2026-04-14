@@ -1,6 +1,6 @@
-import "@stim-io/stim-components/style.css";
-import "@stim-io/stim-components/tokens.css";
-import "@stim-io/stim-components/themes/dark/common.css";
+import "@stim-io/components/styles/foundation/index.css";
+import "@stim-io/components/styles/themes/dark.css";
+import "@stim-io/components/styles/components/stim-button/common.css";
 import "./app.css";
 
 function resolveEngineThemePatch() {
@@ -9,8 +9,8 @@ function resolveEngineThemePatch() {
     /safari/.test(userAgent) && !/chrome|chromium|edg/.test(userAgent);
 
   return isWebKit
-    ? import("@stim-io/stim-components/themes/dark/webkit.css")
-    : import("@stim-io/stim-components/themes/dark/chromium.css");
+    ? import("@stim-io/components/styles/components/stim-button/webkit.css")
+    : import("@stim-io/components/styles/components/stim-button/chromium.css");
 }
 
 export async function applyTheme() {

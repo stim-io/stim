@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { StimButton } from "@stim-io/stim-components";
+import { StimButton } from "@stim-io/components";
 </script>
 
 <template>
