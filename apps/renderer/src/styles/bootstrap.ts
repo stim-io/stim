@@ -1,6 +1,14 @@
 import "@stim-io/components/styles/foundation/index.css";
 import "@stim-io/components/styles/themes/dark.css";
 import "@stim-io/components/styles/components/stim-button/common.css";
+import "@stim-io/components/styles/components/stim-input/common.css";
+import "@stim-io/components/styles/components/stim-text/common.css";
+import "@stim-io/components/styles/components/stim-info-list/common.css";
+import "@stim-io/components/styles/components/stim-surface/common.css";
+import "@stim-io/components/styles/components/stim-stack/common.css";
+import "@stim-io/components/styles/components/stim-viewport-stage/common.css";
+import "@stim-io/components/styles/components/stim-message-card-frame/common.css";
+import "@stim-io/components/styles/components/stim-rich-content/common.css";
 import "./app.css";
 
 function resolveEngineThemePatch() {

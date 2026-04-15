@@ -9,9 +9,9 @@ use std::{
 use serde_json::json;
 use stim_proto::{
     AcknowledgementResult, ContentPart, DeliveryReceipt, DeliveryReceiptResult, DiscoveryRecord,
-    EndpointDeclaration, MessageContent, MessageEnvelope, MessageOperation, MessageState,
-    MutationPayload, ProtocolAcknowledgement, ProtocolSubmission, ReplyEvent, ReplyEventKind,
-    ReplyHandle, ReplySnapshot, TextPart,
+    DomFragmentPart, DomFragmentPayload, EndpointDeclaration, LayoutHint, MessageContent,
+    MessageEnvelope, MessageOperation, MessageState, MutationPayload, ProtocolAcknowledgement,
+    ProtocolSubmission, ReplyEvent, ReplyEventKind, ReplyHandle, ReplySnapshot, TextPart,
 };
 use stim_shared::delivery::{DeliveryError, DeliveryPort};
 
@@ -34,7 +34,7 @@ pub struct ControllerDiscoveryFixture {
     pub peer_discovery: DiscoveryRecord,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ControllerProofSummary {
     pub server_base_url: String,
     pub endpoint_id: String,
@@ -43,15 +43,23 @@ pub struct ControllerProofSummary {
     pub listen_address: String,
     pub envelope_id: String,
     pub final_sent_text: String,
+    pub final_sent_content: MessageContent,
     pub final_message_version: u64,
     pub response_envelope_id: String,
     pub response_text: String,
+    pub response_content: MessageContent,
     pub response_text_source: String,
     pub receipt_result: DeliveryReceiptResult,
     pub receipt_detail: Option<String>,
     pub lifecycle_trace: Vec<ControllerLifecycleStep>,
     pub lifecycle_proof: ControllerLifecycleProof,
     pub cached_endpoint_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ControllerReplyContent {
+    text: String,
+    content: MessageContent,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -426,7 +434,7 @@ where
         let lifecycle_proof =
             build_lifecycle_proof(&lifecycle_trace, &revised_text, fix_response.new_version);
         let reply_id = extract_reply_id(&fix_response)?;
-        let response_text = request_protocol_reply(&target.selected_address, &reply_id)?;
+        let response = request_protocol_reply(&target.selected_address, &reply_id)?;
 
         self.delivery_port.close_delivery_target(&target)?;
 
@@ -437,10 +445,12 @@ where
             message_id: ids.message_id,
             listen_address: peer_listen_address,
             envelope_id: sent_envelope_id,
-            final_sent_text: revised_text,
+            final_sent_text: revised_text.clone(),
+            final_sent_content: user_text_content(&revised_text),
             final_message_version: fix_response.new_version,
             response_envelope_id: reply_id,
-            response_text,
+            response_text: response.text,
+            response_content: response.content,
             response_text_source: "stim_reply_handle".into(),
             receipt_result: receipt.result,
             receipt_detail: receipt.detail,
@@ -676,7 +686,10 @@ fn build_lifecycle_proof(
     }
 }
 
-fn request_protocol_reply(santi_base_url: &str, reply_id: &str) -> Result<String, ControllerError> {
+fn request_protocol_reply(
+    santi_base_url: &str,
+    reply_id: &str,
+) -> Result<ControllerReplyContent, ControllerError> {
     let body = reqwest::blocking::Client::new()
         .get(format!(
             "{santi_base_url}/api/v1/stim/replies/{reply_id}/events"
@@ -705,10 +718,70 @@ fn request_protocol_reply(santi_base_url: &str, reply_id: &str) -> Result<String
         })?;
 
     if !snapshot.output_text.trim().is_empty() {
-        return Ok(snapshot.output_text);
+        return Ok(ControllerReplyContent {
+            text: snapshot.output_text.clone(),
+            content: assistant_card_content(&snapshot.output_text),
+        });
     }
 
-    Ok(streamed)
+    Ok(ControllerReplyContent {
+        text: streamed.clone(),
+        content: assistant_card_content(&streamed),
+    })
+}
+
+fn user_text_content(text: &str) -> MessageContent {
+    MessageContent {
+        parts: vec![ContentPart::Text(TextPart {
+            part_id: "user-text".into(),
+            revision: 1,
+            metadata: None,
+            text: text.into(),
+        })],
+        layout_hint: Some(LayoutHint {
+            layout_family: Some("bubble".into()),
+            min_height_px: None,
+            max_height_px: None,
+            vertical_pressure: Some("compact".into()),
+            metadata: None,
+        }),
+    }
+}
+
+fn assistant_card_content(text: &str) -> MessageContent {
+    MessageContent {
+        parts: vec![ContentPart::DomFragment(DomFragmentPart {
+            part_id: "assistant-card".into(),
+            revision: 1,
+            metadata: None,
+            payload: DomFragmentPayload::StimDomFragmentV1 {
+                tree: serde_json::json!({
+                    "tag": "section",
+                    "props": {
+                        "data-stim-role": "assistant-card"
+                    },
+                    "children": [
+                        {
+                            "tag": "p",
+                            "children": [
+                                {
+                                    "text": text,
+                                }
+                            ]
+                        }
+                    ]
+                }),
+                bindings: None,
+            },
+        })],
+        layout_hint: Some(LayoutHint {
+            layout_family: Some("card".into()),
+            min_height_px: Some(112),
+            max_height_px: None,
+            vertical_pressure: Some("expand".into()),
+            metadata: None,
+        }),
+    }
 }
 
 fn parse_reply_event_stream(body: &str) -> Result<String, ControllerError> {

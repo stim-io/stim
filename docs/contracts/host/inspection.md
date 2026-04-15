@@ -102,6 +102,8 @@ Use this when you want one operator command to verify both:
 
 `context-chat` is an exploratory inspect-driven semantic probe. It drives a few real UI turns through the visible `stim` controls and reports useful context-retention evidence, but it is not a release-grade pass/fail contract for open-ended chat correctness.
 
+Because it drives three real turns through the renderer, the host CLI gives `context-chat` a longer probe timeout budget than the single-turn or two-turn checks.
+
 Treat it as:
 
 - a way to observe whether context appears to persist across turns
@@ -141,6 +143,11 @@ Current supported probe:
 
 `first-message-result` reports the current last visible response/debug block and, if needed, triggers one bounded send through the existing primary action.
 
+It also reports whether the visible last assistant card is currently rendered through the shared fragment path, via:
+
+- `assistant_response_content_kind`
+- `assistant_fragment_present`
+
 `multi-turn-result` reports a bounded two-turn chat proof with:
 
 - first-turn response/final-sent text
@@ -148,6 +155,7 @@ Current supported probe:
 - first/second `conversation_id`
 - whether the same conversation was reused across both turns
 - total/user/assistant chat-entry counts
+- the last assistant card content kind and whether a structured fragment node is visibly present
 - visible error text, if any
 
 `context-chat-result` reports exploratory evidence from a bounded three-turn semantic chat run with:
@@ -161,6 +169,8 @@ Current supported probe:
 - visible error text, if any
 
 Use those fields as evidence for current behavior, not as a claim that agent chat is already stable enough for one exact scripted answer path to define correctness by itself.
+
+`chat-turn-result` also reports the last assistant card content kind plus fragment presence so sequential inspect-driven runs can distinguish the shared `stim-dom-fragment` render path from fallback shapes.
 
 If repeated real usage shows some subset of these semantics becoming durable and predictable, promote only that stable subset into stricter scripted acceptance.
 

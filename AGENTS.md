@@ -66,6 +66,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - `docs/architecture/layers/principles.md`: durable client layering and ownership rules
 - `docs/architecture/desktop/tauri-boundary.md`: boundary between the Tauri host, web app, and local runtime/service processes
 - `docs/architecture/product/workspace-boundary.md`: boundary between `stim`, `stim-packages`, `stim-server`, and `santi`
+- `docs/architecture/product/message-card-boundary.md`: ownership split for message-card composition versus shared card/layout/theme primitives
 - `.github/workflows/ci.yml`: minimal continuous-integration baseline for renderer and Rust support surfaces
 - `../../AGENTS.md`: repo-root workspace boundary across all attached repos
 

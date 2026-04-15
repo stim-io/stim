@@ -120,6 +120,8 @@ pub struct RendererFirstMessageResultSnapshot {
     pub response_text: Option<String>,
     pub response_source: Option<String>,
     pub final_sent_text: Option<String>,
+    pub assistant_response_content_kind: Option<String>,
+    pub assistant_fragment_present: bool,
     pub error_message: Option<String>,
     pub primary_action_label: Option<String>,
 }
@@ -137,6 +139,8 @@ pub struct RendererMultiTurnResultSnapshot {
     pub chat_entry_count: usize,
     pub user_entry_count: usize,
     pub assistant_entry_count: usize,
+    pub assistant_response_content_kind: Option<String>,
+    pub assistant_fragment_present: bool,
     pub error_message: Option<String>,
     pub primary_action_label: Option<String>,
 }
@@ -168,6 +172,8 @@ pub struct RendererChatTurnResultSnapshot {
     pub chat_entry_count: usize,
     pub user_entry_count: usize,
     pub assistant_entry_count: usize,
+    pub assistant_response_content_kind: Option<String>,
+    pub assistant_fragment_present: bool,
     pub error_message: Option<String>,
     pub primary_action_label: Option<String>,
 }

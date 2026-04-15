@@ -40,6 +40,8 @@ type RendererProbeResponse = {
                 response_text: string | null;
                 response_source: string | null;
                 final_sent_text: string | null;
+                assistant_response_content_kind: string | null;
+                assistant_fragment_present: boolean;
                 error_message: string | null;
                 primary_action_label: string | null;
               }
@@ -56,6 +58,8 @@ type RendererProbeResponse = {
                 chat_entry_count: number;
                 user_entry_count: number;
                 assistant_entry_count: number;
+                assistant_response_content_kind: string | null;
+                assistant_fragment_present: boolean;
                 error_message: string | null;
                 primary_action_label: string | null;
               }
@@ -85,6 +89,8 @@ type RendererProbeResponse = {
                 chat_entry_count: number;
                 user_entry_count: number;
                 assistant_entry_count: number;
+                assistant_response_content_kind: string | null;
+                assistant_fragment_present: boolean;
                 error_message: string | null;
                 primary_action_label: string | null;
               };
@@ -114,6 +120,10 @@ function textContentFor(selector: string): string | null {
 
 function primaryActionLabel(): string | null {
   return textContentFor('[data-probe="landing-actions"] button');
+}
+
+function primaryActionReady(): boolean {
+  return primaryActionLabel() === "Send message";
 }
 
 function inputFor(selector: string): HTMLInputElement | null {
@@ -160,6 +170,28 @@ function chatEntryCountFor(role?: "user" | "assistant"): number {
     .length;
 }
 
+function lastAssistantRichContent(): HTMLElement | null {
+  const lastAssistantBubble = chatBubbles()
+    .filter((bubble) => bubble.dataset.role === "assistant")
+    .at(-1);
+
+  return (
+    lastAssistantBubble?.querySelector<HTMLElement>(
+      '[data-probe="rich-content"]',
+    ) ?? null
+  );
+}
+
+function lastAssistantResponseContentKind(): string | null {
+  return lastAssistantRichContent()?.dataset.contentKind ?? null;
+}
+
+function lastAssistantFragmentPresent(): boolean {
+  return Boolean(
+    lastAssistantRichContent()?.querySelector('[data-probe="rich-content-fragment"]'),
+  );
+}
+
 async function waitFor(condition: () => boolean, timeoutMs: number) {
   const deadline = Date.now() + timeoutMs;
 
@@ -185,6 +217,8 @@ function firstMessageSnapshot() {
     response_text: textContentFor('[data-probe="last-response-text"]'),
     response_source: textContentFor('[data-probe="last-response-source"]'),
     final_sent_text: textContentFor('[data-probe="last-final-sent-text"]'),
+    assistant_response_content_kind: lastAssistantResponseContentKind(),
+    assistant_fragment_present: lastAssistantFragmentPresent(),
     error_message: textContentFor('[data-probe="last-error-message"]'),
     primary_action_label: primaryActionLabel(),
   };
@@ -293,6 +327,8 @@ function buildMultiTurnSnapshot(result: {
     chat_entry_count: chatEntryCountFor(),
     user_entry_count: chatEntryCountFor("user"),
     assistant_entry_count: chatEntryCountFor("assistant"),
+    assistant_response_content_kind: lastAssistantResponseContentKind(),
+    assistant_fragment_present: lastAssistantFragmentPresent(),
     error_message: textContentFor('[data-probe="last-error-message"]'),
     primary_action_label: primaryActionLabel(),
   };
@@ -403,7 +439,8 @@ async function sendScriptedTurn(
   await waitFor(() => {
     const snapshot = firstMessageSnapshot();
     return (
-      Boolean(snapshot.error_message) || chatEntryCountFor() >= countBefore + 2
+      Boolean(snapshot.error_message) ||
+      (chatEntryCountFor() >= countBefore + 2 && primaryActionReady())
     );
   }, 20000);
 
@@ -428,6 +465,8 @@ function buildChatTurnSnapshot(sentText: string) {
     chat_entry_count: chatEntryCountFor(),
     user_entry_count: chatEntryCountFor("user"),
     assistant_entry_count: chatEntryCountFor("assistant"),
+    assistant_response_content_kind: snapshot.assistant_response_content_kind,
+    assistant_fragment_present: snapshot.assistant_fragment_present,
     error_message: snapshot.error_message,
     primary_action_label: primaryActionLabel(),
   };

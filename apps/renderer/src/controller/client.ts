@@ -10,6 +10,32 @@ export type LifecycleTraceStep = {
   response_text_source: string;
 };
 
+export type MessageLayoutHint = {
+  layout_family: string | null;
+  min_height_px: number | null;
+  max_height_px: number | null;
+  vertical_pressure: string | null;
+};
+
+export type MessagePart =
+  | {
+      kind: "text";
+      text: string;
+    }
+  | {
+      kind: "stim_dom_fragment";
+      tree: unknown;
+    }
+  | {
+      kind: "raw_html";
+      html: string;
+    };
+
+export type MessageContent = {
+  parts: MessagePart[];
+  layout_hint: MessageLayoutHint | null;
+};
+
 export type LifecycleProof = {
   create_ack_version: number;
   patch_ack_version: number;
@@ -27,8 +53,10 @@ export type FirstMessageResponse = {
   target_endpoint_id: string;
   sent_text: string;
   final_sent_text: string;
+  final_sent_content: MessageContent;
   final_message_version: number;
   response_text: string;
+  response_content: MessageContent;
   response_text_source: string;
   sent_envelope_id: string;
   response_envelope_id: string;
@@ -49,17 +77,20 @@ export async function sendFirstMessage(
     throw new Error("Controller HTTP base URL unavailable");
   }
 
-  const response = await fetch(`${snapshot.http_base_url}/api/v1/messages/roundtrip`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
+  const response = await fetch(
+    `${snapshot.http_base_url}/api/v1/messages/roundtrip`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        target_endpoint_id: targetEndpointId,
+        conversation_id: conversationId ?? null,
+      }),
     },
-    body: JSON.stringify({
-      text,
-      target_endpoint_id: targetEndpointId,
-      conversation_id: conversationId ?? null
-    })
-  });
+  );
 
   if (!response.ok) {
     throw new Error(`Controller roundtrip failed: ${response.status}`);

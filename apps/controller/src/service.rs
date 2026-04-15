@@ -7,7 +7,8 @@ use std::{
 
 use axum::{extract::State, http::StatusCode, routing::get, routing::post, Json, Router};
 use serde::{Deserialize, Serialize};
-use stim_proto::DiscoveryRecord;
+use serde_json::Value;
+use stim_proto::{ContentPart, DiscoveryRecord, LayoutHint, MessageContent};
 use stim_shared::control_plane::{
     namespace_or_default, ControllerRuntimeHeartbeat, ControllerRuntimeSnapshot,
     ControllerRuntimeState,
@@ -70,15 +71,17 @@ pub struct FirstMessageRequest {
     pub conversation_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct FirstMessageResponse {
     pub conversation_id: String,
     pub message_id: String,
     pub target_endpoint_id: String,
     pub sent_text: String,
     pub final_sent_text: String,
+    pub final_sent_content: MessageContentResponse,
     pub final_message_version: u64,
     pub response_text: String,
+    pub response_content: MessageContentResponse,
     pub response_text_source: String,
     pub sent_envelope_id: String,
     pub response_envelope_id: String,
@@ -86,6 +89,28 @@ pub struct FirstMessageResponse {
     pub receipt_detail: Option<String>,
     pub lifecycle_trace: Vec<LifecycleTraceResponse>,
     pub lifecycle_proof: LifecycleProofResponse,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct MessageContentResponse {
+    pub parts: Vec<MessagePartResponse>,
+    pub layout_hint: Option<LayoutHintResponse>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum MessagePartResponse {
+    Text { text: String },
+    RawHtml { html: String },
+    StimDomFragment { tree: Value },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LayoutHintResponse {
+    pub layout_family: Option<String>,
+    pub min_height_px: Option<u32>,
+    pub max_height_px: Option<u32>,
+    pub vertical_pressure: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -347,8 +372,10 @@ async fn first_message_roundtrip(
         target_endpoint_id: request.target_endpoint_id,
         sent_text: request.text,
         final_sent_text: summary.final_sent_text,
+        final_sent_content: map_message_content(&summary.final_sent_content),
         final_message_version: summary.final_message_version,
         response_text: summary.response_text,
+        response_content: map_message_content(&summary.response_content),
         response_text_source: summary.response_text_source,
         sent_envelope_id: summary.envelope_id,
         response_envelope_id: summary.response_envelope_id,
@@ -378,6 +405,39 @@ async fn first_message_roundtrip(
             version_progression_valid: summary.lifecycle_proof.version_progression_valid,
         },
     }))
+}
+
+fn map_message_content(content: &MessageContent) -> MessageContentResponse {
+    MessageContentResponse {
+        parts: content
+            .parts
+            .iter()
+            .filter_map(|part| match part {
+                ContentPart::Text(text) => Some(MessagePartResponse::Text {
+                    text: text.text.clone(),
+                }),
+                ContentPart::DomFragment(fragment) => match &fragment.payload {
+                    stim_proto::DomFragmentPayload::StimDomFragmentV1 { tree, .. } => {
+                        Some(MessagePartResponse::StimDomFragment { tree: tree.clone() })
+                    }
+                    stim_proto::DomFragmentPayload::RawHtml { html, .. } => {
+                        Some(MessagePartResponse::RawHtml { html: html.clone() })
+                    }
+                },
+                _ => None,
+            })
+            .collect(),
+        layout_hint: content.layout_hint.as_ref().map(map_layout_hint),
+    }
+}
+
+fn map_layout_hint(layout_hint: &LayoutHint) -> LayoutHintResponse {
+    LayoutHintResponse {
+        layout_family: layout_hint.layout_family.clone(),
+        min_height_px: layout_hint.min_height_px,
+        max_height_px: layout_hint.max_height_px,
+        vertical_pressure: layout_hint.vertical_pressure.clone(),
+    }
 }
 
 async fn discover_endpoint(

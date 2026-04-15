@@ -36,3 +36,5 @@ When ownership is unclear:
 - put agent/runtime semantics in `modules/santi/`
 
 Prefer keeping those boundaries explicit over optimizing for convenience in one repo.
+
+For message-card work specifically, read `message-card-boundary.md` for the stricter rule that card/layout/theme primitives stay in `stim-packages/` while `stim` remains a composition and prop-declaration layer.

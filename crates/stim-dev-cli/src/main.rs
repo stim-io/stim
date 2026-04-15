@@ -27,6 +27,13 @@ enum StartTarget {
     Tauri,
 }
 
+#[derive(Clone, Copy)]
+struct StartOptions {
+    target: StartTarget,
+    force_renderer: bool,
+    reuse_renderer: bool,
+}
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("stim-dev-cli: {error}");
@@ -43,7 +50,7 @@ fn run() -> Result<(), String> {
             print_help();
             Ok(())
         }
-        "start" => start(parse_start_target(args.next().as_deref())?),
+        "start" => start(parse_start_options(args.collect())?),
         "acceptance" => acceptance(args.next().as_deref()),
         "inspect" => inspect(),
         "controller-runtime" => controller_runtime(),
@@ -55,7 +62,7 @@ fn run() -> Result<(), String> {
 }
 
 fn help_text() -> &'static str {
-    "stim-dev-cli commands:\n  start [all|renderer|tauri]\n  acceptance [first-message|multi-turn|context-chat]\n  inspect\n  controller-runtime\n  probe [landing|first-message|multi-turn|context-chat]\n  chat-turn [--reset] <text>\n  screenshot [label]\n  help"
+    "stim-dev-cli commands:\n  start [all|renderer|tauri] [--force] [--reuse-renderer]\n  acceptance [first-message|multi-turn|context-chat]\n  inspect\n  controller-runtime\n  probe [landing|first-message|multi-turn|context-chat]\n  chat-turn [--reset] <text>\n  screenshot [label]\n  help"
 }
 
 fn print_help() {
@@ -87,19 +94,65 @@ fn parse_start_target(value: Option<&str>) -> Result<StartTarget, String> {
     }
 }
 
-fn start(target: StartTarget) -> Result<(), String> {
-    match target {
-        StartTarget::All | StartTarget::Tauri => run_pnpm(&tauri_app_dir(), &["tauri", "dev"]),
-        StartTarget::Renderer => run_pnpm(
-            &renderer_app_dir(),
-            &[
+fn parse_start_options(args: Vec<String>) -> Result<StartOptions, String> {
+    let mut target: Option<StartTarget> = None;
+    let mut force_renderer = false;
+    let mut reuse_renderer = false;
+
+    for arg in args {
+        if arg == "--force" {
+            force_renderer = true;
+        } else if arg == "--reuse-renderer" {
+            reuse_renderer = true;
+        } else if target.is_none() {
+            target = Some(parse_start_target(Some(&arg))?);
+        } else {
+            return Err(format!("unsupported start argument: {arg}"));
+        }
+    }
+
+    let target = target.unwrap_or(StartTarget::All);
+    if force_renderer && !matches!(target, StartTarget::Renderer) {
+        return Err("--force is currently only supported with 'start renderer'".into());
+    }
+    if reuse_renderer && !matches!(target, StartTarget::Tauri) {
+        return Err("--reuse-renderer is currently only supported with 'start tauri'".into());
+    }
+
+    Ok(StartOptions {
+        target,
+        force_renderer,
+        reuse_renderer,
+    })
+}
+
+fn start(options: StartOptions) -> Result<(), String> {
+    match options.target {
+        StartTarget::All => run_pnpm(&tauri_app_dir(), &["tauri", "dev"]),
+        StartTarget::Tauri => {
+            if options.reuse_renderer {
+                run_cargo(
+                    &tauri_app_dir().join("src-tauri"),
+                    &["run", "--no-default-features", "--"],
+                )
+            } else {
+                run_pnpm(&tauri_app_dir(), &["tauri", "dev"])
+            }
+        }
+        StartTarget::Renderer => {
+            let mut args = vec![
                 "dev",
                 "--host",
                 stim_shared::RENDERER_DEV_HOST,
                 "--port",
                 "1420",
-            ],
-        ),
+            ];
+            if options.force_renderer {
+                args.push("--force");
+            }
+
+            run_pnpm(&renderer_app_dir(), &args)
+        }
     }
 }
 
@@ -303,6 +356,7 @@ fn parse_probe_target(target: Option<&str>) -> Result<RendererProbeRequest, Stri
 fn request_probe(probe: RendererProbeRequest) -> Result<RendererProbeResult, String> {
     let request_id = create_request_id();
     let requested_at = timestamp_now();
+    let timeout = renderer_probe_timeout(&probe);
     let request = RendererProbeBridgeRequest {
         request_id: request_id.clone(),
         requested_at: requested_at.clone(),
@@ -329,8 +383,6 @@ fn request_probe(probe: RendererProbeRequest) -> Result<RendererProbeResult, Str
         .map_err(|error| format!("failed to write probe request: {error}"))?;
 
     let started = SystemTime::now();
-    let timeout = Duration::from_secs(15);
-
     loop {
         if started.elapsed().unwrap_or_default() > timeout {
             let _ = fs::remove_file(&request_path);
@@ -353,6 +405,16 @@ fn request_probe(probe: RendererProbeRequest) -> Result<RendererProbeResult, Str
         }
 
         thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn renderer_probe_timeout(probe: &RendererProbeRequest) -> Duration {
+    match probe {
+        RendererProbeRequest::LandingBasics => Duration::from_secs(10),
+        RendererProbeRequest::FirstMessageResult => Duration::from_secs(30),
+        RendererProbeRequest::MultiTurnResult => Duration::from_secs(45),
+        RendererProbeRequest::ContextChatResult => Duration::from_secs(75),
+        RendererProbeRequest::ChatTurn { .. } => Duration::from_secs(30),
     }
 }
 
@@ -481,5 +543,52 @@ fn run_pnpm(workdir: &std::path::Path, args: &[&str]) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!("pnpm {:?} exited with status {status}", args))
+    }
+}
+
+fn run_cargo(workdir: &std::path::Path, args: &[&str]) -> Result<(), String> {
+    let status = Command::new("cargo")
+        .args(args)
+        .current_dir(workdir)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .map_err(|error| format!("failed to run cargo {:?}: {error}", args))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("cargo {:?} exited with status {status}", args))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::renderer_probe_timeout;
+    use std::time::Duration;
+    use stim_shared::inspection::RendererProbeRequest;
+
+    #[test]
+    fn context_chat_probe_gets_longer_timeout_budget() {
+        assert_eq!(
+            renderer_probe_timeout(&RendererProbeRequest::ContextChatResult),
+            Duration::from_secs(75)
+        );
+        assert_eq!(
+            renderer_probe_timeout(&RendererProbeRequest::MultiTurnResult),
+            Duration::from_secs(45)
+        );
+        assert_eq!(
+            renderer_probe_timeout(&RendererProbeRequest::FirstMessageResult),
+            Duration::from_secs(30)
+        );
+        assert_eq!(
+            renderer_probe_timeout(&RendererProbeRequest::ChatTurn {
+                text: "hello".into(),
+                reset: false,
+            }),
+            Duration::from_secs(30)
+        );
     }
 }
