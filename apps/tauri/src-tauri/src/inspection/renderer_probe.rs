@@ -106,7 +106,7 @@ fn request_renderer_probe<R: Runtime>(
         .map_err(|error| format!("failed to emit probe request event: {error}"))?;
 
     let started = std::time::SystemTime::now();
-    let timeout = Duration::from_secs(10);
+    let timeout = renderer_probe_timeout(&request.probe);
 
     loop {
         if let Some(result) = take_response(app, &request.request_id, &request.requested_at) {
@@ -121,6 +121,18 @@ fn request_renderer_probe<R: Runtime>(
         }
 
         thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn renderer_probe_timeout(probe: &stim_shared::inspection::RendererProbeRequest) -> Duration {
+    match probe {
+        stim_shared::inspection::RendererProbeRequest::LandingBasics => Duration::from_secs(10),
+        stim_shared::inspection::RendererProbeRequest::FirstMessageResult => {
+            Duration::from_secs(30)
+        }
+        stim_shared::inspection::RendererProbeRequest::MultiTurnResult => Duration::from_secs(45),
+        stim_shared::inspection::RendererProbeRequest::ContextChatResult => Duration::from_secs(75),
+        stim_shared::inspection::RendererProbeRequest::ChatTurn { .. } => Duration::from_secs(30),
     }
 }
 
@@ -143,5 +155,24 @@ fn take_response<R: Runtime>(
 fn clear_previous_response<R: Runtime>(app: &AppHandle<R>, request_id: &str) {
     if let Ok(mut responses) = app.state::<RendererProbeResponses>().0.lock() {
         responses.remove(request_id);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::renderer_probe_timeout;
+    use std::time::Duration;
+    use stim_shared::inspection::RendererProbeRequest;
+
+    #[test]
+    fn context_chat_probe_gets_longer_renderer_budget() {
+        assert_eq!(
+            renderer_probe_timeout(&RendererProbeRequest::ContextChatResult),
+            Duration::from_secs(75)
+        );
+        assert_eq!(
+            renderer_probe_timeout(&RendererProbeRequest::MultiTurnResult),
+            Duration::from_secs(45)
+        );
     }
 }

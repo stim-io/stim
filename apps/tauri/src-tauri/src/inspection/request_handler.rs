@@ -4,16 +4,18 @@ use tauri::{AppHandle, Manager, Runtime};
 
 use stim_shared::{
     inspection::{
-        InspectBridgeRequest, InspectBridgeResponse, ScreenshotBridgeRequest,
-        ScreenshotBridgeResponse,
+        ControllerRuntimeBridgeRequest, ControllerRuntimeBridgeResponse, InspectBridgeRequest,
+        InspectBridgeResponse, ScreenshotBridgeRequest, ScreenshotBridgeResponse,
     },
     paths::{
-        inspect_bridge_requests_dir, inspect_bridge_response_path, inspect_bridge_responses_dir,
-        screenshot_bridge_requests_dir, screenshot_bridge_response_path,
-        screenshot_bridge_responses_dir,
+        controller_runtime_bridge_requests_dir, controller_runtime_bridge_response_path,
+        controller_runtime_bridge_responses_dir, inspect_bridge_requests_dir,
+        inspect_bridge_response_path, inspect_bridge_responses_dir, screenshot_bridge_requests_dir,
+        screenshot_bridge_response_path, screenshot_bridge_responses_dir,
     },
 };
 
+use crate::controller_runtime;
 use crate::inspection::inspect::inspect_main_window;
 use crate::inspection::renderer_probe::poll_renderer_probe_requests;
 use crate::inspection::screenshot::capture_main_window_screenshot;
@@ -32,8 +34,58 @@ pub fn start_inspection_bridge<R: Runtime>(app: AppHandle<R>) {
             eprintln!("[stim-tauri][inspection] renderer probe bridge poll failed: {error}");
         }
 
+        if let Err(error) = poll_controller_runtime_requests(&app) {
+            eprintln!("[stim-tauri][inspection] controller runtime bridge poll failed: {error}");
+        }
+
         thread::sleep(Duration::from_millis(500));
     });
+}
+
+fn poll_controller_runtime_requests<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    fs::create_dir_all(controller_runtime_bridge_requests_dir())
+        .map_err(|error| format!("failed to create controller runtime request dir: {error}"))?;
+    fs::create_dir_all(controller_runtime_bridge_responses_dir())
+        .map_err(|error| format!("failed to create controller runtime response dir: {error}"))?;
+
+    let mut entries = fs::read_dir(controller_runtime_bridge_requests_dir())
+        .map_err(|error| format!("failed to read controller runtime request dir: {error}"))?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
+        .collect::<Vec<_>>();
+
+    entries.sort_by_key(|entry| entry.file_name());
+
+    for entry in entries {
+        let request_path = entry.path();
+        let request_content = fs::read_to_string(&request_path)
+            .map_err(|error| format!("failed to read controller runtime request: {error}"))?;
+        let request = match serde_json::from_str::<ControllerRuntimeBridgeRequest>(&request_content)
+        {
+            Ok(request) => request,
+            Err(_) => {
+                let _ = fs::remove_file(&request_path);
+                continue;
+            }
+        };
+
+        let response = ControllerRuntimeBridgeResponse {
+            request_id: request.request_id.clone(),
+            requested_at: request.requested_at.clone(),
+            responded_at: crate::inspection::screenshot::timestamp_now(),
+            snapshot: controller_runtime::controller_snapshot(app),
+            heartbeat: controller_runtime::controller_heartbeat(app),
+        };
+
+        let response_path = controller_runtime_bridge_response_path(&request.request_id);
+        let response_body = serde_json::to_string_pretty(&response)
+            .map_err(|error| format!("failed to serialize controller runtime response: {error}"))?;
+        fs::write(&response_path, format!("{response_body}\n"))
+            .map_err(|error| format!("failed to write controller runtime response: {error}"))?;
+        let _ = fs::remove_file(&request_path);
+    }
+
+    Ok(())
 }
 
 fn poll_screenshot_requests<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {

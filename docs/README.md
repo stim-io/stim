@@ -17,6 +17,7 @@ Preferred sub-structure:
 - `architecture/desktop/`: desktop host and Tauri boundary notes
 - `architecture/layers/`: durable layering and ownership rules inside `stim`
 - `architecture/product/`: product-facing boundary notes when they add distinct value
+- `architecture/product/message-card-boundary.md`: durable ownership split for message-card composition versus shared card/layout/theme primitives
 - `contracts/host/`: host control-plane and desktop capability contracts when they become real
 - `contracts/product/`: client-visible product and data-view contracts when they become real
 - `contracts/host/inspection.md`: current local screenshot / inspect / renderer-probe contract

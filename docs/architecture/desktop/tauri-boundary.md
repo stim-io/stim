@@ -96,9 +96,19 @@ Rule of thumb:
 
 > if the payload is about what the product/service does, it belongs on the service plane; if it is about how the desktop host finds, controls, or observes a local capability, it may belong on the Tauri control plane.
 
+For sidecar-backed local services, apply this split strictly:
+
+- IPC/control-plane surfaces publish local sidecar truth such as discovery, current endpoint, readiness, and heartbeat
+- HTTP / SSE / WebSocket carry business requests, responses, and streaming semantics
+
+Do not use IPC as a shortcut business API between the web app and a local sidecar service.
+
 ## Sidecar/runtime rule
 
 If local sidecars or helper processes are used, keep their boundary explicit.
+
+For `stim`, the controller should be treated as a Tauri-local sidecar/runtime component rather than as a separate long-term service form.
+Do not spend design effort on promoting controller into an independently managed runtime shape inside this project.
 
 The Tauri host may:
 
@@ -113,6 +123,15 @@ The Tauri host should not:
 - become the business-protocol adapter for that runtime
 - redefine service semantics in command handlers
 - mix runtime lifecycle logic with product UI composition logic
+
+For multi-sidecar development or runtime composition, IPC should stay namespaced and small:
+
+- publish which sidecar instance is current
+- publish which HTTP endpoint is current
+- publish `starting` / `ready` / `heartbeat` / `degraded` style lifecycle truth
+- give the host enough authority to attach, recover, or report failure clearly
+
+That IPC truth should make HTTP attach targets trustworthy; it should not replace HTTP as the real business surface.
 
 ## Authority rule
 
