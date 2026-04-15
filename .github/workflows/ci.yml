@@ -18,6 +18,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Attach stim-packages sibling
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: git clone --depth 1 https://x-access-token:${GITHUB_TOKEN}@github.com/stim-io/stim-packages.git ../stim-packages
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
