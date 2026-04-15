@@ -30,6 +30,7 @@ pub enum DeliveryError {
     ListenerNotBound,
     QueueEmpty,
     Poisoned,
+    Remote(String),
 }
 
 #[derive(Default, Clone)]
