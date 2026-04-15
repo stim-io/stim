@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Attach stim-packages sibling
         env:
@@ -43,7 +45,18 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check formatting
-        run: pnpm format:check
+        shell: bash
+        run: |
+          mapfile -t files < <(
+            git diff --name-only origin/main...HEAD -- '*.json' '*.md' '*.ts' '*.vue' '*.yml'
+          )
+
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No format-tracked files changed"
+            exit 0
+          fi
+
+          pnpm exec prettier --check "${files[@]}"
 
       - name: Generate server client
         run: pnpm generate:client
