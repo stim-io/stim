@@ -17,6 +17,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Treat Tauri as the desktop host/runtime boundary, not as the main product-logic home.
 - Keep the web app, Tauri host, and local runtime-control surfaces separated by explicit boundaries rather than convenience-driven mixing.
 - IPC/plugin commands are for local host control, discovery, diagnostics, and capability bridging; they must not become the primary business API surface.
+- Keep inspection and scripted acceptance focused on stable boundary truth (attachment target, visible state, conversation reuse, error presence, message growth). Do not treat open-ended agent chat semantics as fully scriptable until those semantics have matured into a genuinely stable contract.
 - Real product/business communication should converge on explicit HTTP / SSE / WebSocket contracts exposed by owned services.
 - Dev/prod differences belong in bootstrap, config, and provider/resource selection, not in the core identity of product features or control-plane contracts.
 - Prefer a small number of stable client primitives over premature abstraction or framework layering.

@@ -78,3 +78,19 @@ pub fn renderer_probe_bridge_request_path(request_id: &str) -> PathBuf {
 pub fn renderer_probe_bridge_response_path(request_id: &str) -> PathBuf {
     renderer_probe_bridge_responses_dir().join(format!("{request_id}.json"))
 }
+
+pub fn controller_runtime_bridge_requests_dir() -> PathBuf {
+    inspection_root().join("controller-runtime-bridge/requests")
+}
+
+pub fn controller_runtime_bridge_responses_dir() -> PathBuf {
+    inspection_root().join("controller-runtime-bridge/responses")
+}
+
+pub fn controller_runtime_bridge_request_path(request_id: &str) -> PathBuf {
+    controller_runtime_bridge_requests_dir().join(format!("{request_id}.json"))
+}
+
+pub fn controller_runtime_bridge_response_path(request_id: &str) -> PathBuf {
+    controller_runtime_bridge_responses_dir().join(format!("{request_id}.json"))
+}

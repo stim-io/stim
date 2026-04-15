@@ -3530,10 +3530,12 @@ dependencies = [
  "axum",
  "reqwest 0.12.28",
  "serde",
+ "serde_json",
  "stim-proto",
  "stim-server",
  "stim-shared",
  "tokio",
+ "tower-http",
 ]
 
 [[package]]

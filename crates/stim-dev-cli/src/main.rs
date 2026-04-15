@@ -7,11 +7,13 @@ use std::{
 
 use stim_shared::{
     inspection::{
-        InspectBridgeRequest, InspectBridgeResponse, InspectResult, RendererProbeBridgeRequest,
+        ControllerRuntimeBridgeRequest, ControllerRuntimeBridgeResponse, InspectBridgeRequest,
+        InspectBridgeResponse, InspectResult, RendererProbeBridgeRequest,
         RendererProbeBridgeResponse, RendererProbeRequest, RendererProbeResult,
         ScreenshotBridgeRequest, ScreenshotBridgeResponse, ScreenshotResult,
     },
     paths::{
+        controller_runtime_bridge_request_path, controller_runtime_bridge_response_path,
         inspect_bridge_request_path, inspect_bridge_response_path, renderer_app_dir,
         renderer_probe_bridge_request_path, renderer_probe_bridge_response_path,
         screenshot_bridge_request_path, screenshot_bridge_response_path, tauri_app_dir,
@@ -42,15 +44,18 @@ fn run() -> Result<(), String> {
             Ok(())
         }
         "start" => start(parse_start_target(args.next().as_deref())?),
+        "acceptance" => acceptance(args.next().as_deref()),
         "inspect" => inspect(),
+        "controller-runtime" => controller_runtime(),
         "probe" => probe(args.next().as_deref()),
+        "chat-turn" => chat_turn(args.collect()),
         "screenshot" => screenshot(args.next()),
         other => Err(format!("unsupported command: {other}\n\n{}", help_text())),
     }
 }
 
 fn help_text() -> &'static str {
-    "stim-dev-cli commands:\n  start [all|renderer|tauri]\n  inspect\n  probe [landing]\n  screenshot [label]\n  help"
+    "stim-dev-cli commands:\n  start [all|renderer|tauri]\n  acceptance [first-message|multi-turn|context-chat]\n  inspect\n  controller-runtime\n  probe [landing|first-message|multi-turn|context-chat]\n  chat-turn [--reset] <text>\n  screenshot [label]\n  help"
 }
 
 fn print_help() {
@@ -164,78 +169,138 @@ fn screenshot(label: Option<String>) -> Result<(), String> {
 }
 
 fn inspect() -> Result<(), String> {
-    let request_id = create_request_id();
-    let requested_at = timestamp_now();
-    let request = InspectBridgeRequest {
-        request_id: request_id.clone(),
-        requested_at: requested_at.clone(),
-    };
-
-    let request_path = inspect_bridge_request_path(&request_id);
-    let response_path = inspect_bridge_response_path(&request_id);
-
-    if let Some(parent) = request_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|error| format!("failed to create inspect request dir: {error}"))?;
-    }
-
-    if let Some(parent) = response_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|error| format!("failed to create inspect response dir: {error}"))?;
-    }
-
-    let request_body = serde_json::to_string_pretty(&request)
-        .map_err(|error| format!("failed to serialize inspect request: {error}"))?;
-    let _ = fs::remove_file(&response_path);
-    fs::write(&request_path, format!("{request_body}\n"))
-        .map_err(|error| format!("failed to write inspect request: {error}"))?;
-
-    let started = SystemTime::now();
-    let timeout = Duration::from_secs(15);
-
-    loop {
-        if started.elapsed().unwrap_or_default() > timeout {
-            let _ = fs::remove_file(&request_path);
-            let _ = fs::remove_file(&response_path);
-            return Err(format!(
-                "timed out waiting for inspect response at {}",
-                response_path.display()
-            ));
+    match request_inspect()? {
+        InspectResult::Success { snapshot } => {
+            let output = serde_json::to_string_pretty(&snapshot)
+                .map_err(|error| format!("failed to serialize inspect snapshot: {error}"))?;
+            println!("{output}");
+            Ok(())
         }
-
-        if let Ok(content) = fs::read_to_string(&response_path) {
-            let response = serde_json::from_str::<InspectBridgeResponse>(&content)
-                .map_err(|error| format!("failed to parse inspect response: {error}"))?;
-
-            if response.request_id == request_id && response.requested_at == requested_at {
-                let _ = fs::remove_file(&request_path);
-                let _ = fs::remove_file(&response_path);
-
-                match response.result {
-                    InspectResult::Success { snapshot } => {
-                        let output = serde_json::to_string_pretty(&snapshot).map_err(|error| {
-                            format!("failed to serialize inspect snapshot: {error}")
-                        })?;
-                        println!("{output}");
-                        return Ok(());
-                    }
-                    InspectResult::Failure { reason } => {
-                        return Err(format!("inspect failed: {:?}", reason));
-                    }
-                }
-            }
-        }
-
-        thread::sleep(Duration::from_millis(200));
+        InspectResult::Failure { reason } => Err(format!("inspect failed: {:?}", reason)),
     }
 }
 
-fn probe(target: Option<&str>) -> Result<(), String> {
-    let probe = match target.unwrap_or("landing") {
-        "landing" => RendererProbeRequest::LandingBasics,
-        other => return Err(format!("unsupported probe target: {other}")),
-    };
+fn controller_runtime() -> Result<(), String> {
+    let response = request_controller_runtime()?;
+    let output = serde_json::to_string_pretty(&response)
+        .map_err(|error| format!("failed to serialize controller runtime response: {error}"))?;
+    println!("{output}");
+    Ok(())
+}
 
+fn probe(target: Option<&str>) -> Result<(), String> {
+    let probe = parse_probe_target(target)?;
+
+    match request_probe(probe)? {
+        RendererProbeResult::Success { snapshot } => {
+            let output = serde_json::to_string_pretty(&snapshot)
+                .map_err(|error| format!("failed to serialize probe snapshot: {error}"))?;
+            println!("{output}");
+            Ok(())
+        }
+        RendererProbeResult::Failure { reason } => Err(format!("probe failed: {:?}", reason)),
+    }
+}
+
+fn chat_turn(args: Vec<String>) -> Result<(), String> {
+    let mut reset = false;
+    let mut text_parts = Vec::new();
+
+    for arg in args {
+        if arg == "--reset" {
+            reset = true;
+        } else {
+            text_parts.push(arg);
+        }
+    }
+
+    let text = text_parts.join(" ").trim().to_string();
+    if text.is_empty() {
+        return Err("chat-turn requires message text".to_string());
+    }
+
+    match request_probe(RendererProbeRequest::ChatTurn { text, reset })? {
+        RendererProbeResult::Success { snapshot } => {
+            let output = serde_json::to_string_pretty(&snapshot)
+                .map_err(|error| format!("failed to serialize chat-turn snapshot: {error}"))?;
+            println!("{output}");
+            Ok(())
+        }
+        RendererProbeResult::Failure { reason } => Err(format!("chat-turn failed: {:?}", reason)),
+    }
+}
+
+fn acceptance(target: Option<&str>) -> Result<(), String> {
+    match target.unwrap_or("first-message") {
+        "first-message" => {
+            let controller_runtime = request_controller_runtime()?;
+            let probe = match request_probe(RendererProbeRequest::FirstMessageResult)? {
+                RendererProbeResult::Success { snapshot } => snapshot,
+                RendererProbeResult::Failure { reason } => {
+                    return Err(format!("probe failed during acceptance: {:?}", reason));
+                }
+            };
+
+            let output = serde_json::to_string_pretty(&serde_json::json!({
+                "checked_at": timestamp_now(),
+                "controller_runtime": controller_runtime,
+                "probe": probe,
+            }))
+            .map_err(|error| format!("failed to serialize acceptance output: {error}"))?;
+            println!("{output}");
+            Ok(())
+        }
+        "multi-turn" => {
+            let controller_runtime = request_controller_runtime()?;
+            let probe = match request_probe(RendererProbeRequest::MultiTurnResult)? {
+                RendererProbeResult::Success { snapshot } => snapshot,
+                RendererProbeResult::Failure { reason } => {
+                    return Err(format!("probe failed during acceptance: {:?}", reason));
+                }
+            };
+
+            let output = serde_json::to_string_pretty(&serde_json::json!({
+                "checked_at": timestamp_now(),
+                "controller_runtime": controller_runtime,
+                "probe": probe,
+            }))
+            .map_err(|error| format!("failed to serialize acceptance output: {error}"))?;
+            println!("{output}");
+            Ok(())
+        }
+        "context-chat" => {
+            let controller_runtime = request_controller_runtime()?;
+            let probe = match request_probe(RendererProbeRequest::ContextChatResult)? {
+                RendererProbeResult::Success { snapshot } => snapshot,
+                RendererProbeResult::Failure { reason } => {
+                    return Err(format!("probe failed during acceptance: {:?}", reason));
+                }
+            };
+
+            let output = serde_json::to_string_pretty(&serde_json::json!({
+                "checked_at": timestamp_now(),
+                "controller_runtime": controller_runtime,
+                "probe": probe,
+            }))
+            .map_err(|error| format!("failed to serialize acceptance output: {error}"))?;
+            println!("{output}");
+            Ok(())
+        }
+        other => Err(format!("unsupported acceptance target: {other}")),
+    }
+}
+
+fn parse_probe_target(target: Option<&str>) -> Result<RendererProbeRequest, String> {
+    match target.unwrap_or("landing") {
+        "landing" => Ok(RendererProbeRequest::LandingBasics),
+        "first-message" => Ok(RendererProbeRequest::FirstMessageResult),
+        "multi-turn" => Ok(RendererProbeRequest::MultiTurnResult),
+        "context-chat" => Ok(RendererProbeRequest::ContextChatResult),
+        other => return Err(format!("unsupported probe target: {other}")),
+    }
+}
+
+fn request_probe(probe: RendererProbeRequest) -> Result<RendererProbeResult, String> {
     let request_id = create_request_id();
     let requested_at = timestamp_now();
     let request = RendererProbeBridgeRequest {
@@ -283,19 +348,118 @@ fn probe(target: Option<&str>) -> Result<(), String> {
             if response.request_id == request_id && response.requested_at == requested_at {
                 let _ = fs::remove_file(&request_path);
                 let _ = fs::remove_file(&response_path);
+                return Ok(response.result);
+            }
+        }
 
-                match response.result {
-                    RendererProbeResult::Success { snapshot } => {
-                        let output = serde_json::to_string_pretty(&snapshot).map_err(|error| {
-                            format!("failed to serialize probe snapshot: {error}")
-                        })?;
-                        println!("{output}");
-                        return Ok(());
-                    }
-                    RendererProbeResult::Failure { reason } => {
-                        return Err(format!("probe failed: {:?}", reason));
-                    }
-                }
+        thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn request_inspect() -> Result<InspectResult, String> {
+    let request_id = create_request_id();
+    let requested_at = timestamp_now();
+    let request = InspectBridgeRequest {
+        request_id: request_id.clone(),
+        requested_at: requested_at.clone(),
+    };
+
+    let request_path = inspect_bridge_request_path(&request_id);
+    let response_path = inspect_bridge_response_path(&request_id);
+
+    if let Some(parent) = request_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create inspect request dir: {error}"))?;
+    }
+
+    if let Some(parent) = response_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create inspect response dir: {error}"))?;
+    }
+
+    let request_body = serde_json::to_string_pretty(&request)
+        .map_err(|error| format!("failed to serialize inspect request: {error}"))?;
+    let _ = fs::remove_file(&response_path);
+    fs::write(&request_path, format!("{request_body}\n"))
+        .map_err(|error| format!("failed to write inspect request: {error}"))?;
+
+    let started = SystemTime::now();
+    let timeout = Duration::from_secs(15);
+
+    loop {
+        if started.elapsed().unwrap_or_default() > timeout {
+            let _ = fs::remove_file(&request_path);
+            let _ = fs::remove_file(&response_path);
+            return Err(format!(
+                "timed out waiting for inspect response at {}",
+                response_path.display()
+            ));
+        }
+
+        if let Ok(content) = fs::read_to_string(&response_path) {
+            let response = serde_json::from_str::<InspectBridgeResponse>(&content)
+                .map_err(|error| format!("failed to parse inspect response: {error}"))?;
+
+            if response.request_id == request_id && response.requested_at == requested_at {
+                let _ = fs::remove_file(&request_path);
+                let _ = fs::remove_file(&response_path);
+                return Ok(response.result);
+            }
+        }
+
+        thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn request_controller_runtime() -> Result<ControllerRuntimeBridgeResponse, String> {
+    let request_id = create_request_id();
+    let requested_at = timestamp_now();
+    let request = ControllerRuntimeBridgeRequest {
+        request_id: request_id.clone(),
+        requested_at: requested_at.clone(),
+    };
+
+    let request_path = controller_runtime_bridge_request_path(&request_id);
+    let response_path = controller_runtime_bridge_response_path(&request_id);
+
+    if let Some(parent) = request_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create controller runtime request dir: {error}"))?;
+    }
+
+    if let Some(parent) = response_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            format!("failed to create controller runtime response dir: {error}")
+        })?;
+    }
+
+    let request_body = serde_json::to_string_pretty(&request)
+        .map_err(|error| format!("failed to serialize controller runtime request: {error}"))?;
+    let _ = fs::remove_file(&response_path);
+    fs::write(&request_path, format!("{request_body}\n"))
+        .map_err(|error| format!("failed to write controller runtime request: {error}"))?;
+
+    let started = SystemTime::now();
+    let timeout = Duration::from_secs(15);
+
+    loop {
+        if started.elapsed().unwrap_or_default() > timeout {
+            let _ = fs::remove_file(&request_path);
+            let _ = fs::remove_file(&response_path);
+            return Err(format!(
+                "timed out waiting for controller runtime response at {}",
+                response_path.display()
+            ));
+        }
+
+        if let Ok(content) = fs::read_to_string(&response_path) {
+            let response = serde_json::from_str::<ControllerRuntimeBridgeResponse>(&content)
+                .map_err(|error| format!("failed to parse controller runtime response: {error}"))?;
+
+            if response.request_id == request_id && response.requested_at == requested_at {
+                let _ = fs::remove_file(&request_path);
+                let _ = fs::remove_file(&response_path);
+                return Ok(response);
             }
         }
 

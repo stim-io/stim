@@ -1,3 +1,4 @@
+pub mod control_plane;
 pub mod delivery;
 pub mod inspection;
 pub mod paths;

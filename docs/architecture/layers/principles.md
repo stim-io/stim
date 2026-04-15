@@ -36,6 +36,13 @@ Keep these two concerns distinct:
 
 Do not turn Tauri commands into a mirror of server business APIs.
 
+For local sidecar-backed services, keep the split explicit:
+
+- IPC/control-plane clients: namespaced discovery, endpoint publication, heartbeat, status, diagnostics
+- HTTP / SSE / WebSocket clients: business requests, responses, streams, and protocol semantics
+
+If a payload describes what the service does, it does not belong on IPC.
+
 ### 3. Host control is narrow
 
 Host integration may expose:

@@ -53,6 +53,9 @@ The host layer is not the primary home of product/business protocol semantics.
 
 The canonical desktop split between Tauri host, web app, and local runtime/service processes lives in `architecture/desktop/tauri-boundary.md`.
 
+Within that split, `stim` controller belongs to the Tauri-local sidecar/runtime boundary.
+It is not a candidate standalone service form for this project.
+
 ### Service layer
 
 Real business communication should converge on explicit service contracts such as:

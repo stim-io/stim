@@ -12,11 +12,32 @@ use stim_shared::control_plane::{
     namespace_or_default, ControllerRuntimeHeartbeat, ControllerRuntimeSnapshot,
     ControllerRuntimeState,
 };
+use tower_http::cors::{Any, CorsLayer};
 
 use crate::controller;
 
 const DEFAULT_COMPOSE_STIM_SERVER_BASE_URL: &str = "http://127.0.0.1:18083";
 const DEFAULT_COMPOSE_SANTI_BASE_URL: &str = "http://127.0.0.1:18081";
+
+#[derive(Debug, Clone, Copy)]
+struct TargetResolution {
+    source: &'static str,
+    env_var: &'static str,
+}
+
+impl TargetResolution {
+    fn describe(self, base_url: &str) -> String {
+        match self.source {
+            "env-override" => {
+                format!("env-override via {} -> {}", self.env_var, base_url)
+            }
+            "compose-default" => {
+                format!("compose-default via {} -> {}", self.env_var, base_url)
+            }
+            _ => format!("{} -> {}", self.source, base_url),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ControllerServiceHandle {
@@ -46,16 +67,48 @@ pub struct ControllerHttpState {
 pub struct FirstMessageRequest {
     pub text: String,
     pub target_endpoint_id: String,
+    pub conversation_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FirstMessageResponse {
+    pub conversation_id: String,
+    pub message_id: String,
     pub target_endpoint_id: String,
     pub sent_text: String,
+    pub final_sent_text: String,
+    pub final_message_version: u64,
     pub response_text: String,
+    pub response_text_source: String,
     pub sent_envelope_id: String,
     pub response_envelope_id: String,
     pub receipt_result: String,
+    pub receipt_detail: Option<String>,
+    pub lifecycle_trace: Vec<LifecycleTraceResponse>,
+    pub lifecycle_proof: LifecycleProofResponse,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LifecycleTraceResponse {
+    pub operation: String,
+    pub sent_envelope_id: String,
+    pub ack_envelope_id: String,
+    pub ack_message_id: String,
+    pub ack_version: u64,
+    pub response_text: String,
+    pub response_text_source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LifecycleProofResponse {
+    pub create_ack_version: u64,
+    pub patch_ack_version: u64,
+    pub fix_ack_version: u64,
+    pub final_message_version: u64,
+    pub expected_final_text: String,
+    pub controller_final_text: String,
+    pub final_text_matches_expected: bool,
+    pub version_progression_valid: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -65,8 +118,8 @@ pub struct RegistrySnapshotResponse {
 
 pub fn spawn_local_controller(namespace: Option<&str>) -> Result<ControllerServiceHandle, String> {
     let namespace = namespace_or_default(namespace).to_string();
-    let (stim_server_base_url, stim_server_mode) = resolve_stim_server_base_url()?;
-    let (santi_base_url, santi_mode) = resolve_santi_base_url()?;
+    let (stim_server_base_url, stim_server_target) = resolve_stim_server_base_url()?;
+    let (santi_base_url, santi_target) = resolve_santi_base_url()?;
 
     let std_listener = TcpListener::bind("127.0.0.1:0")
         .map_err(|error| format!("failed to bind controller listener: {error}"))?;
@@ -93,7 +146,9 @@ pub fn spawn_local_controller(namespace: Option<&str>) -> Result<ControllerServi
         state: ControllerRuntimeState::Ready,
         http_base_url: Some(format!("http://{local_addr}")),
         detail: Some(format!(
-            "controller ready via {stim_server_mode} at {stim_server_base_url}; target santi via {santi_mode} at {santi_base_url}"
+            "controller ready with stim-server {} ; target santi {}",
+            stim_server_target.describe(&stim_server_base_url),
+            santi_target.describe(&santi_base_url)
         )),
     }));
     let heartbeat = Arc::new(Mutex::new(ControllerRuntimeHeartbeat {
@@ -122,6 +177,12 @@ pub fn spawn_local_controller(namespace: Option<&str>) -> Result<ControllerServi
         )
         .route("/api/v1/debug/registry", get(registry_snapshot))
         .route("/api/v1/messages/roundtrip", post(first_message_roundtrip))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_headers(Any)
+                .allow_methods(Any),
+        )
         .with_state(app_state);
 
     let snapshot_for_thread = snapshot.clone();
@@ -181,16 +242,25 @@ pub fn spawn_local_controller(namespace: Option<&str>) -> Result<ControllerServi
     })
 }
 
-fn resolve_stim_server_base_url() -> Result<(String, &'static str), String> {
+fn resolve_stim_server_base_url() -> Result<(String, TargetResolution), String> {
     if let Ok(base_url) = std::env::var("STIM_SERVER_BASE_URL") {
         wait_for_health(&base_url)?;
-        return Ok((base_url, "env-configured external"));
+        return Ok((
+            base_url,
+            TargetResolution {
+                source: "env-override",
+                env_var: "STIM_SERVER_BASE_URL",
+            },
+        ));
     }
 
     if wait_for_health(DEFAULT_COMPOSE_STIM_SERVER_BASE_URL).is_ok() {
         return Ok((
             DEFAULT_COMPOSE_STIM_SERVER_BASE_URL.into(),
-            "compose-managed external",
+            TargetResolution {
+                source: "compose-default",
+                env_var: "STIM_SERVER_BASE_URL",
+            },
         ));
     }
 
@@ -200,16 +270,25 @@ fn resolve_stim_server_base_url() -> Result<(String, &'static str), String> {
     ))
 }
 
-fn resolve_santi_base_url() -> Result<(String, &'static str), String> {
+fn resolve_santi_base_url() -> Result<(String, TargetResolution), String> {
     if let Ok(base_url) = std::env::var("SANTI_BASE_URL") {
         wait_for_health(&base_url)?;
-        return Ok((base_url, "env-configured external"));
+        return Ok((
+            base_url,
+            TargetResolution {
+                source: "env-override",
+                env_var: "SANTI_BASE_URL",
+            },
+        ));
     }
 
     if wait_for_health(DEFAULT_COMPOSE_SANTI_BASE_URL).is_ok() {
         return Ok((
             DEFAULT_COMPOSE_SANTI_BASE_URL.into(),
-            "compose-managed external",
+            TargetResolution {
+                source: "compose-default",
+                env_var: "SANTI_BASE_URL",
+            },
         ));
     }
 
@@ -230,12 +309,14 @@ async fn first_message_roundtrip(
     let stim_server_base_url = state.stim_server_base_url.clone();
     let target_endpoint_id = request.target_endpoint_id.clone();
     let text = request.text.clone();
+    let conversation_id = request.conversation_id.clone();
     let self_discovery = state.self_discovery.clone();
     let summary = tokio::task::spawn_blocking(move || {
-        controller::first_message_roundtrip_via_server(
+        controller::message_roundtrip_via_server(
             &stim_server_base_url,
             &target_endpoint_id,
             &text,
+            conversation_id.as_deref(),
             self_discovery,
         )
     })
@@ -250,19 +331,52 @@ async fn first_message_roundtrip(
 
     if let Ok(mut snapshot) = state.snapshot.lock() {
         snapshot.published_at = timestamp_now();
-        snapshot.detail = Some(format!(
+        let roundtrip_detail = format!(
             "last roundtrip ok for endpoint {} envelope {}",
             summary.endpoint_id, summary.envelope_id
-        ));
+        );
+        snapshot.detail = Some(match snapshot.detail.take() {
+            Some(existing) if !existing.is_empty() => format!("{existing} ; {roundtrip_detail}"),
+            _ => roundtrip_detail,
+        });
     }
 
     Ok(Json(FirstMessageResponse {
+        conversation_id: summary.conversation_id,
+        message_id: summary.message_id,
         target_endpoint_id: request.target_endpoint_id,
         sent_text: request.text,
+        final_sent_text: summary.final_sent_text,
+        final_message_version: summary.final_message_version,
         response_text: summary.response_text,
+        response_text_source: summary.response_text_source,
         sent_envelope_id: summary.envelope_id,
         response_envelope_id: summary.response_envelope_id,
         receipt_result: format!("{:?}", summary.receipt_result).to_lowercase(),
+        receipt_detail: summary.receipt_detail,
+        lifecycle_trace: summary
+            .lifecycle_trace
+            .into_iter()
+            .map(|step| LifecycleTraceResponse {
+                operation: step.operation,
+                sent_envelope_id: step.sent_envelope_id,
+                ack_envelope_id: step.ack_envelope_id,
+                ack_message_id: step.ack_message_id,
+                ack_version: step.ack_version,
+                response_text: step.response_text,
+                response_text_source: step.response_text_source,
+            })
+            .collect(),
+        lifecycle_proof: LifecycleProofResponse {
+            create_ack_version: summary.lifecycle_proof.create_ack_version,
+            patch_ack_version: summary.lifecycle_proof.patch_ack_version,
+            fix_ack_version: summary.lifecycle_proof.fix_ack_version,
+            final_message_version: summary.lifecycle_proof.final_message_version,
+            expected_final_text: summary.lifecycle_proof.expected_final_text,
+            controller_final_text: summary.lifecycle_proof.controller_final_text,
+            final_text_matches_expected: summary.lifecycle_proof.final_text_matches_expected,
+            version_progression_valid: summary.lifecycle_proof.version_progression_valid,
+        },
     }))
 }
 
@@ -448,7 +562,10 @@ mod tests {
     };
 
     use axum::{routing::get, routing::post, Json, Router};
-    use stim_proto::{AcknowledgementResult, MessageEnvelope, ProtocolAcknowledgement};
+    use stim_proto::{
+        AcknowledgementResult, MessageEnvelope, ProtocolAcknowledgement, ProtocolSubmission,
+        ReplyHandle, ReplySnapshot, ReplyStatus,
+    };
     use stim_server::{
         app::build_router as build_stim_server_router, state::AppState as StimServerState,
     };
@@ -488,15 +605,53 @@ mod tests {
                     .route(
                         "/api/v1/stim/envelopes",
                         post(|Json(envelope): Json<MessageEnvelope>| async move {
-                            Json(ProtocolAcknowledgement {
-                                ack_envelope_id: format!("ack-{}", envelope.envelope_id),
-                                ack_message_id: envelope.message_id,
-                                ack_version: envelope.new_version,
-                                ack_result: AcknowledgementResult::Applied,
-                                detail: Some(format!(
-                                    "santi session {} applied; output=hello from mock santi",
-                                    envelope.conversation_id
-                                )),
+                            Json(ProtocolSubmission {
+                                acknowledgement: ProtocolAcknowledgement {
+                                    ack_envelope_id: format!("ack-{}", envelope.envelope_id),
+                                    ack_message_id: envelope.message_id.clone(),
+                                    ack_version: envelope.new_version,
+                                    ack_result: AcknowledgementResult::Applied,
+                                    detail: Some(format!(
+                                        "santi session {} applied",
+                                        envelope.conversation_id
+                                    )),
+                                },
+                                reply: matches!(envelope.operation, stim_proto::MessageOperation::Fix)
+                                    .then(|| ReplyHandle {
+                                        reply_id: "reply-1".into(),
+                                        conversation_id: envelope.conversation_id,
+                                        message_id: envelope.message_id,
+                                        status: ReplyStatus::Pending,
+                                    }),
+                            })
+                        }),
+                    )
+                    .route(
+                        "/api/v1/stim/replies/{reply_id}/events",
+                        get(|| async move {
+                            let body = concat!(
+                                r#"data: {"reply_id":"reply-1","sequence":1,"event":{"type":"output_text_delta","delta":"hello from "}}"#,
+                                "\n\n",
+                                r#"data: {"reply_id":"reply-1","sequence":2,"event":{"type":"output_text_delta","delta":"mock santi"}}"#,
+                                "\n\n",
+                                r#"data: {"reply_id":"reply-1","sequence":3,"event":{"type":"completed"}}"#,
+                                "\n\n",
+                                "data: [DONE]",
+                                "\n\n"
+                            );
+                            ([("content-type", "text/event-stream")], body)
+                        }),
+                    )
+                    .route(
+                        "/api/v1/stim/replies/{reply_id}",
+                        get(|| async move {
+                            Json(ReplySnapshot {
+                                reply_id: "reply-1".into(),
+                                conversation_id: "conv-1".into(),
+                                message_id: "msg-1".into(),
+                                status: ReplyStatus::Completed,
+                                output_text: "hello from mock santi".into(),
+                                error: None,
                             })
                         }),
                     );
@@ -545,6 +700,31 @@ mod tests {
         assert!(response.contains("hello from mock santi"));
         assert!(response.contains("accepted"));
         assert!(response.contains("endpoint-b"));
+        let snapshot_detail = handle.snapshot().detail.unwrap_or_default();
+        assert!(snapshot_detail.contains("stim-server env-override via STIM_SERVER_BASE_URL ->"));
+        assert!(snapshot_detail.contains("target santi env-override via SANTI_BASE_URL ->"));
+        assert!(snapshot_detail.contains("last roundtrip ok for endpoint endpoint-b envelope"));
+        unsafe { std::env::remove_var("STIM_SERVER_BASE_URL") };
+        unsafe { std::env::remove_var("SANTI_BASE_URL") };
+    }
+
+    #[test]
+    fn spawned_controller_snapshot_reports_env_override_targets() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let stim_server_base_url = spawn_test_stim_server();
+        let santi_base_url = spawn_test_santi_server();
+        unsafe { std::env::set_var("STIM_SERVER_BASE_URL", &stim_server_base_url) };
+        unsafe { std::env::set_var("SANTI_BASE_URL", &santi_base_url) };
+
+        let handle = spawn_local_controller(Some("test-detail")).unwrap();
+        let snapshot = handle.snapshot();
+        let detail = snapshot.detail.unwrap_or_default();
+
+        assert!(detail.contains("stim-server env-override via STIM_SERVER_BASE_URL ->"));
+        assert!(detail.contains(&stim_server_base_url));
+        assert!(detail.contains("target santi env-override via SANTI_BASE_URL ->"));
+        assert!(detail.contains(&santi_base_url));
+
         unsafe { std::env::remove_var("STIM_SERVER_BASE_URL") };
         unsafe { std::env::remove_var("SANTI_BASE_URL") };
     }
