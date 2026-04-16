@@ -22,17 +22,20 @@ type RendererProbeResponse = {
   result:
     | {
         kind: "success";
-        snapshot: {
-          inspected_at: string;
-          probe:
+              snapshot: {
+                inspected_at: string;
+                probe:
             | {
                 kind: "landing-basics";
                 document_ready_state: string;
                 document_title: string;
                 landing_shell_present: boolean;
                 landing_card_present: boolean;
+                session_drawer_present: boolean;
+                session_drawer_collapsed: boolean;
                 landing_title_text: string | null;
                 primary_action_label: string | null;
+                active_session_id: string | null;
               }
             | {
                 kind: "first-message-result";
@@ -120,6 +123,32 @@ function textContentFor(selector: string): string | null {
 
 function primaryActionLabel(): string | null {
   return textContentFor('[data-probe="landing-actions"] button');
+}
+
+function drawerToggleButton(): HTMLButtonElement | null {
+  return document.querySelector<HTMLButtonElement>(
+    '[data-probe="session-drawer-toggle"]',
+  );
+}
+
+function newConversationButton(): HTMLButtonElement | null {
+  return document.querySelector<HTMLButtonElement>(
+    '[data-probe="new-conversation-button"]',
+  );
+}
+
+function sessionDrawerCollapsed(): boolean {
+  return (
+    document.querySelector('[data-probe="session-drawer"]')?.getAttribute(
+      'data-collapsed',
+    ) === 'true'
+  );
+}
+
+function activeSessionIdText(): string | null {
+  return document
+    .querySelector<HTMLElement>('[data-probe="active-session-item"]')
+    ?.dataset.sessionId ?? null;
 }
 
 function primaryActionReady(): boolean {
@@ -244,8 +273,13 @@ function buildLandingBasicsResponse(
           landing_card_present: Boolean(
             document.querySelector('[data-probe="landing-card"]'),
           ),
+          session_drawer_present: Boolean(
+            document.querySelector('[data-probe="session-drawer"]'),
+          ),
+          session_drawer_collapsed: sessionDrawerCollapsed(),
           landing_title_text: textContentFor('[data-probe="landing-title"]'),
           primary_action_label: primaryActionLabel(),
+          active_session_id: activeSessionIdText(),
         },
       },
     },
@@ -339,7 +373,7 @@ async function collectMultiTurnResultResponse(
 ): Promise<RendererProbeResponse> {
   const messageInput = inputFor('[data-probe="message-input"]');
   const sendButton = actionButton(0);
-  const resetButton = actionButton(1);
+  const resetButton = newConversationButton();
 
   clickButton(resetButton);
   await waitFor(
@@ -481,7 +515,7 @@ async function collectChatTurnResponse(
 ): Promise<RendererProbeResponse> {
   const messageInput = inputFor('[data-probe="message-input"]');
   const sendButton = actionButton(0);
-  const resetButton = actionButton(1);
+  const resetButton = newConversationButton();
 
   if (request.probe.reset) {
     clickButton(resetButton);
@@ -549,7 +583,7 @@ async function collectContextChatResultResponse(
 ): Promise<RendererProbeResponse> {
   const messageInput = inputFor('[data-probe="message-input"]');
   const sendButton = actionButton(0);
-  const resetButton = actionButton(1);
+  const resetButton = newConversationButton();
 
   clickButton(resetButton);
   await waitFor(

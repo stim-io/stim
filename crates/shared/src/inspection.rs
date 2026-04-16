@@ -110,8 +110,11 @@ pub struct RendererLandingBasicsSnapshot {
     pub document_title: String,
     pub landing_shell_present: bool,
     pub landing_card_present: bool,
+    pub session_drawer_present: bool,
+    pub session_drawer_collapsed: bool,
     pub landing_title_text: Option<String>,
     pub primary_action_label: Option<String>,
+    pub active_session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

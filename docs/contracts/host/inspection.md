@@ -173,8 +173,11 @@ Current supported probe:
 - `document_title`
 - landing shell presence
 - landing card presence
+- session drawer presence
+- whether the session drawer is currently collapsed
 - landing heading text
 - primary action label
+- active session id for the current drawer selection
 
 `first-message-result` reports the current last visible response/debug block and, if needed, triggers one bounded send through the existing primary action.
 
