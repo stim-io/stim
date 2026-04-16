@@ -3,7 +3,7 @@ members = [
   "apps/tauri/src-tauri",
   "apps/controller",
   "crates/shared",
-  "crates/stim-dev-cli"
+  "tools/stim-dev"
 ]
 resolver = "2"
 

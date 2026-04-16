@@ -15,6 +15,14 @@ That shell exists to:
 
 It does not exist to become the primary business protocol layer.
 
+## Quick reading guide
+
+Use this file when the question is:
+
+- should this behavior live in the web app, Tauri host, or a service?
+- is this a control-plane action or a business-plane action?
+- should the controller/runtime be treated as host-local or as a standalone service concern?
+
 ## Three-plane model
 
 Prefer this split whenever desktop architecture questions arise:
@@ -95,6 +103,18 @@ They are not appropriate for:
 Rule of thumb:
 
 > if the payload is about what the product/service does, it belongs on the service plane; if it is about how the desktop host finds, controls, or observes a local capability, it may belong on the Tauri control plane.
+
+Positive examples:
+
+- runtime readiness snapshot over IPC
+- published local controller endpoint over IPC
+- restart/reprobe action exposed by the host
+
+Negative examples:
+
+- send-message business mutation over IPC
+- canonical chat/session protocol hidden behind Tauri commands
+- business response streaming encoded as host events for convenience
 
 For sidecar-backed local services, apply this split strictly:
 

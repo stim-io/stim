@@ -36,7 +36,7 @@ struct StartOptions {
 
 fn main() {
     if let Err(error) = run() {
-        eprintln!("stim-dev-cli: {error}");
+        eprintln!("stim-dev: {error}");
         exit(1);
     }
 }
@@ -62,7 +62,7 @@ fn run() -> Result<(), String> {
 }
 
 fn help_text() -> &'static str {
-    "stim-dev-cli commands:\n  start [all|renderer|tauri] [--force] [--reuse-renderer]\n  acceptance [first-message|multi-turn|context-chat]\n  inspect\n  controller-runtime\n  probe [landing|first-message|multi-turn|context-chat]\n  chat-turn [--reset] <text>\n  screenshot [label]\n  help"
+    "stim-dev commands:\n  start [all|renderer|tauri] [--force] [--reuse-renderer]\n  acceptance [first-message|multi-turn|context-chat]\n  inspect\n  controller-runtime\n  probe [landing|first-message|multi-turn|context-chat]\n  chat-turn [--reset] <text>\n  screenshot [label]\n  help"
 }
 
 fn print_help() {
