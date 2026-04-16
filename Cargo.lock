@@ -3539,7 +3539,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "stim-dev-cli"
+name = "stim-dev"
 version = "0.1.0"
 dependencies = [
  "serde_json",

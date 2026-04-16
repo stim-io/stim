@@ -10,7 +10,7 @@ Current cold-start structure:
 - `apps/tauri`: Tauri platform shell
 - `apps/controller`: Rust controller placeholder
 - `crates/shared`: shared Rust primitives for non-UI layers
-- `crates/stim-dev-cli`: unified Rust dev entrypoint
+- `tools/stim-dev`: unified Rust dev entrypoint
 
 - `AGENTS.md`: stable repo boundary and key file index
-- `docs/README.md`: documentation structure map
+- `docs/operations/documentation.md`: documentation method

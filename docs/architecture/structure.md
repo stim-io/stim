@@ -1,6 +1,6 @@
-# Stim Structure and Directory Ownership
+# Stim Structure and Ownership Method
 
-This file defines the durable directory-level ownership model for `stim`.
+This file defines the durable structure and ownership method for `stim`.
 
 It does not freeze exact framework choices or file names forever.
 It does define what kinds of code belong together and what kinds of code must stay separate.
@@ -10,6 +10,27 @@ It does define what kinds of code belong together and what kinds of code must st
 Keep the product app, service-consumption code, and Tauri host/control code structurally distinct from the start.
 
 The main purpose of this structure is boundary protection, not aesthetic neatness.
+
+`stim` is the product client/application repo.
+
+Use this file to answer questions like:
+
+- where a new concern belongs inside `stim`
+- when a concern actually belongs in `stim-packages/` or an external service repo instead
+- when a local product leftover should stay local instead of forcing a new shared abstraction
+
+## Quick reading guide
+
+Use this file first when you are deciding:
+
+- which top-level area should own new code
+- whether a concern belongs in `stim`, `stim-packages`, or a service repo
+- whether a local UI/layout concern should stay local or become shared
+
+Then read more specific docs only if the question narrows to:
+
+- desktop host/control-plane ownership → `architecture/desktop/tauri-boundary.md`
+- host inspection/probe/operator contract → `contracts/host/inspection.md`
 
 ## Top-level stance
 
@@ -23,7 +44,8 @@ stim/
     controller/
   crates/
     shared/
-    stim-dev-cli/
+  tools/
+    stim-dev/
   docs/
 ```
 
@@ -31,6 +53,7 @@ stim/
 - `apps/tauri/` is the desktop host shell boundary
 - `apps/controller/` is the local controller/runtime boundary
 - `crates/` holds non-UI Rust support layers
+- `tools/` holds repo-local Rust developer tools and operational entrypoints
 - `docs/` is the durable architecture/contract/operations boundary
 
 The internal Tauri `src-tauri/` directory is treated as an implementation detail of `apps/tauri/`, not as the repo's top-level architecture shape.
@@ -115,6 +138,12 @@ It should not absorb ownership that belongs in `stim-packages/`, such as:
 - canonical theme definitions
 - base visual primitives intended for reuse across the product surface
 
+Small product-local composition leftovers may stay in `stim` when they are clearly screen-specific, such as bounded page width or copy-measure constraints.
+
+Do not promote those leftovers into shared primitives automatically.
+
+Promote them only when repeated pressure shows that the same concern is reappearing across screens or message-card compositions.
+
 ## `apps/tauri/` ownership
 
 `apps/tauri/` should own the desktop host/control plane.
@@ -164,14 +193,49 @@ It should not become:
 - Tauri host bootstrap code
 - a dumping ground for unrelated dev-only glue
 
-## `crates/` rule
+## `crates/` and `tools/` rule
 
-Prefer `crates/` for non-UI Rust support layers that are shared or tool-like.
+Prefer `crates/` for non-UI Rust support layers that are shared with the product/runtime code.
+
+Prefer `tools/` for repo-local Rust developer tooling and operational entrypoints that are not part of the main runtime/support-layer architecture.
 
 Current intended examples:
 
 - `crates/shared/`: non-UI shared Rust primitives
-- `crates/stim-dev-cli/`: unified Rust development orchestration entrypoint
+- `tools/stim-dev/`: unified Rust development orchestration entrypoint
+
+## Shared component rule
+
+`stim` composes shared atoms, layout primitives, and theme-backed primitives from `stim-packages/`.
+
+It should not become the long-term home for:
+
+- reusable card visuals
+- reusable layout behavior
+- shared typography treatment
+- theme-owned styling logic
+
+When UI pressure appears, ask in this order:
+
+1. is this clearly product composition that should stay in `stim`?
+2. is this a repeated visual/layout concern that belongs in `stim-packages`?
+3. is this really a service or runtime boundary problem rather than a component problem?
+
+Do not make `stim` look thinner by moving obviously local product leftovers into shared packages too early.
+
+### Quick placement examples
+
+Keep in `stim`:
+
+- one screen's copy width constraint
+- feature-local page composition
+- product-specific arrangement of shared message-card primitives
+
+Move to `stim-packages` only when repeated pressure appears:
+
+- the same text treatment starts repeating across screens
+- multiple screens need the same reusable card frame or layout behavior
+- `stim` is duplicating the same visual prop-shaping or CSS for shared presentation concerns
 
 ## Shared contract rule
 
