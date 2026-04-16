@@ -22,11 +22,3 @@ body,
 body {
   margin: 0;
 }
-
-.landing-card {
-  width: min(100%, 42rem);
-}
-
-.landing-copy {
-  max-width: 34rem;
-}

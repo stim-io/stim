@@ -9,6 +9,10 @@ export type ControllerRuntimeSnapshot = {
   detail: string | null;
 };
 
+export function hasTauriHostRuntime() {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
 export async function fetchControllerRuntimeSnapshot() {
   return invoke<ControllerRuntimeSnapshot>("controller_runtime_snapshot");
 }

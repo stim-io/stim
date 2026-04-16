@@ -21,8 +21,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/client
       '@stim-io/components':
-        specifier: 0.1.0-beta.3
-        version: 0.1.0-beta.3(vue@3.5.32(typescript@6.0.2))
+        specifier: file:../../../stim-packages/packages/components
+        version: file:../stim-packages/packages/components(vue@3.5.32(typescript@6.0.2))
       '@tauri-apps/api':
         specifier: ^2.10.1
         version: 2.10.1
@@ -227,8 +227,8 @@ packages:
   '@rolldown/pluginutils@1.0.0-rc.15':
     resolution: {integrity: sha512-UromN0peaE53IaBRe9W7CjrZgXl90fqGpK+mIZbA3qSTeYqg3pqpROBdIPvOG3F5ereDHNwoHBI2e50n1BDr1g==}
 
-  '@stim-io/components@0.1.0-beta.3':
-    resolution: {integrity: sha512-5l+2PQQX+sp1C/Mtwq4Ue0+0DpEfyM9Fe7l7HBNLyKgEW2eHHJVzxAJ1VBwryq8PPZ4JQqoxu63cloQS51iQCw==, tarball: https://npm.pkg.github.com/download/@stim-io/components/0.1.0-beta.3/b84bc728ea2023812c8ac5ec92150b0111a8adab}
+  '@stim-io/components@file:../stim-packages/packages/components':
+    resolution: {directory: ../stim-packages/packages/components, type: directory}
     peerDependencies:
       vue: 3.5.32
 
@@ -903,7 +903,7 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.0-rc.15': {}
 
-  '@stim-io/components@0.1.0-beta.3(vue@3.5.32(typescript@6.0.2))':
+  '@stim-io/components@file:../stim-packages/packages/components(vue@3.5.32(typescript@6.0.2))':
     dependencies:
       vue: 3.5.32(typescript@6.0.2)
 

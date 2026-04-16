@@ -1,16 +1,10 @@
 <script setup lang="ts">
-import {
-  StimButton,
-  StimInfoList,
-  StimInput,
-  StimStack,
-  StimSurface,
-  StimText,
-  StimViewportStage,
-} from "@stim-io/components";
+import { StimAppRoot, StimSplit } from "@stim-io/components";
 import { computed, onMounted, ref } from "vue";
 
-import MessageCard from "./components/MessageCard.vue";
+import MessagesPane from "./components/im/MessagesPane.vue";
+import SessionDrawer from "./components/im/SessionDrawer.vue";
+import type { ChatMessage, SessionSummary } from "./components/im/types";
 import {
   type MessageContent,
   sendFirstMessage,
@@ -18,6 +12,7 @@ import {
 } from "./controller/client";
 import {
   fetchControllerRuntimeSnapshot,
+  hasTauriHostRuntime,
   type ControllerRuntimeSnapshot,
 } from "./controller/runtime";
 
@@ -26,20 +21,140 @@ const targetEndpointId = ref("endpoint-b");
 const controllerSnapshot = ref<ControllerRuntimeSnapshot | null>(null);
 const sendResult = ref<FirstMessageResponse | null>(null);
 const activeConversationId = ref<string | null>(null);
-const chatHistory = ref<
-  Array<{ id: string; role: "user" | "assistant"; content: MessageContent }>
->([]);
+const liveMessages = ref<ChatMessage[]>([
+  createChatMessage(
+    "seed-assistant",
+    "assistant",
+    "stim",
+    "Ready",
+    textContent(
+      "Session drawer and messages area are now the first desktop slice. Start with a text roundtrip here.",
+    ),
+  ),
+]);
+const activeSessionId = ref("live-controller");
+const isSessionDrawerCollapsed = ref(false);
+const sessionQuery = ref("");
+const activeSessionScope = ref<"all" | "live" | "unread">("all");
 const errorMessage = ref<string | null>(null);
 const isLoading = ref(false);
+const optimisticMessageId = ref<string | null>(null);
+
+const staticSessions: SessionSummary[] = [
+  {
+    id: "design-sync",
+    title: "Design sync",
+    preview: "Session shell spacing feels close to target.",
+    activityLabel: "08:42",
+    unreadCount: 2,
+    participantLabel: "DS",
+    live: false,
+    messages: [
+      createChatMessage(
+        "design-1",
+        "assistant",
+        "Nora",
+        "08:39",
+        textContent("The desktop drawer density is getting closer to the Feishu reference."),
+      ),
+      createChatMessage(
+        "design-2",
+        "user",
+        "You",
+        "08:42",
+        textContent("Good, next we should tighten the message row spacing and unread emphasis."),
+      ),
+    ],
+  },
+  {
+    id: "qa-handoff",
+    title: "QA handoff",
+    preview: "Mock sessions remain read-only for now.",
+    activityLabel: "Yesterday",
+    unreadCount: 0,
+    participantLabel: "QA",
+    live: false,
+    messages: [
+      createChatMessage(
+        "qa-1",
+        "assistant",
+        "QA",
+        "Yesterday",
+        textContent("Once the live controller thread is stable, we can route acceptance around it."),
+      ),
+    ],
+  },
+];
 
 const controllerStatus = computed(
   () => controllerSnapshot.value?.state ?? "unavailable",
 );
+const controllerAttached = computed(() => hasTauriHostRuntime());
 const controllerBaseUrl = computed(
   () => controllerSnapshot.value?.http_base_url ?? "not attached",
 );
 
+const sessions = computed<SessionSummary[]>(() => {
+  const latestLiveMessage = liveMessages.value.at(-1);
+
+  return [
+    {
+      id: "live-controller",
+      title: "Controller live thread",
+      preview: controllerAttached.value
+        ? latestLiveMessage
+          ? previewForContent(latestLiveMessage.content)
+          : "Start a real text roundtrip"
+        : "Attach the Tauri desktop host to enable live controller roundtrips.",
+      activityLabel: controllerStatus.value,
+      unreadCount: 0,
+      participantLabel: "AI",
+      live: controllerAttached.value,
+      messages: liveMessages.value,
+    },
+    ...staticSessions,
+  ];
+});
+
+const visibleSessions = computed(() => {
+  const normalizedQuery = sessionQuery.value.trim().toLowerCase();
+
+  return sessions.value.filter((session) => {
+    const matchesScope =
+      activeSessionScope.value === "all"
+        ? true
+        : activeSessionScope.value === "live"
+          ? session.live
+          : session.unreadCount > 0;
+
+    if (!matchesScope) {
+      return false;
+    }
+
+    if (!normalizedQuery) {
+      return true;
+    }
+
+    return [session.title, session.preview, session.participantLabel]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedQuery);
+  });
+});
+
+const activeSession = computed(
+  () =>
+    visibleSessions.value.find((session) => session.id === activeSessionId.value) ??
+    sessions.value.find((session) => session.id === activeSessionId.value) ??
+    visibleSessions.value[0] ??
+    sessions.value[0],
+);
+
 onMounted(async () => {
+  if (!controllerAttached.value) {
+    return;
+  }
+
   try {
     controllerSnapshot.value = await fetchControllerRuntimeSnapshot();
   } catch (error) {
@@ -48,7 +163,7 @@ onMounted(async () => {
 });
 
 async function handleSend() {
-  if (!draftText.value.trim()) {
+  if (!activeSession.value.live || !draftText.value.trim()) {
     return;
   }
 
@@ -58,27 +173,64 @@ async function handleSend() {
   try {
     controllerSnapshot.value = await fetchControllerRuntimeSnapshot();
     const sentDraft = draftText.value;
+    const pendingId = `pending-${Date.now()}`;
+    optimisticMessageId.value = pendingId;
+    liveMessages.value.push(
+      createChatMessage(pendingId, "user", "You", "Now", textContent(sentDraft), {
+        deliveryState: "sending",
+      }),
+    );
+    draftText.value = "";
+
     sendResult.value = await sendFirstMessage(
       sentDraft,
       targetEndpointId.value,
       activeConversationId.value,
     );
-    activeConversationId.value = sendResult.value.conversation_id;
-    chatHistory.value.push(
-      {
-        id: `${sendResult.value.message_id}-user`,
-        role: "user",
-        content: sendResult.value.final_sent_content,
-      },
-      {
-        id: `${sendResult.value.message_id}-assistant`,
-        role: "assistant",
-        content: sendResult.value.response_content,
-      },
+    const sendResultValue = sendResult.value;
+    activeConversationId.value = sendResultValue.conversation_id;
+    liveMessages.value = liveMessages.value.map((message) =>
+      message.id === pendingId
+        ? createChatMessage(
+            `${sendResultValue.message_id}-user`,
+            "user",
+            "You",
+            "Now",
+            sendResultValue.final_sent_content,
+            {
+              deliveryState: "sent",
+              metaLabel: "Delivered to controller",
+            },
+          )
+        : message,
     );
-    draftText.value = "";
+    liveMessages.value.push(
+      createChatMessage(
+        `${sendResultValue.message_id}-assistant`,
+        "assistant",
+        "stim",
+        "Now",
+        sendResultValue.response_content,
+        {
+          metaLabel: "Controller reply",
+        },
+      ),
+    );
+    optimisticMessageId.value = null;
     controllerSnapshot.value = await fetchControllerRuntimeSnapshot();
   } catch (error) {
+    if (optimisticMessageId.value) {
+      liveMessages.value = liveMessages.value.map((message) =>
+        message.id === optimisticMessageId.value
+          ? {
+              ...message,
+              deliveryState: "failed",
+              metaLabel: "Retry after controller recovers",
+            }
+          : message,
+      );
+      optimisticMessageId.value = null;
+    }
     errorMessage.value = error instanceof Error ? error.message : String(error);
   } finally {
     isLoading.value = false;
@@ -86,177 +238,97 @@ async function handleSend() {
 }
 
 function handleNewConversation() {
+  activeSessionId.value = "live-controller";
   activeConversationId.value = null;
-  chatHistory.value = [];
+  liveMessages.value = [];
   sendResult.value = null;
   errorMessage.value = null;
+  optimisticMessageId.value = null;
   draftText.value = "hello from stim ui";
+}
+
+function createChatMessage(
+  id: string,
+  role: ChatMessage["role"],
+  author: string,
+  sentAtLabel: string,
+  content: MessageContent,
+  options?: {
+    deliveryState?: ChatMessage["deliveryState"];
+    metaLabel?: string | null;
+  },
+): ChatMessage {
+  return {
+    id,
+    role,
+    author,
+    sentAtLabel,
+    content,
+    deliveryState: options?.deliveryState,
+    metaLabel: options?.metaLabel ?? null,
+  };
+}
+
+function textContent(text: string): MessageContent {
+  return {
+    parts: [{ kind: "text", text }],
+    layout_hint: null,
+  };
+}
+
+function previewForContent(content: MessageContent): string {
+  const preview = content.parts
+    .map((part) => {
+      if (part.kind === "text") {
+        return part.text;
+      }
+
+      if (part.kind === "raw_html") {
+        return "[html]";
+      }
+
+      return "[fragment]";
+    })
+    .join(" ")
+    .trim();
+
+  return preview || "No message preview";
 }
 </script>
 
 <template>
-  <StimViewportStage class="landing-shell" data-probe="landing-shell">
-    <StimSurface
-      class="landing-card"
-      data-probe="landing-card"
-      tone="elevated"
-      padding="lg"
-      radius="lg"
-    >
-      <StimStack gap="lg">
-        <StimStack gap="sm">
-          <StimText as="p" size="eyebrow" tone="secondary">stim</StimText>
-          <StimText as="h1" class="landing-title" data-probe="landing-title" size="display">
-            Agent-native messaging, starting with a strict desktop landing.
-          </StimText>
-          <StimText as="p" class="landing-copy" tone="secondary" size="body">
-            This rough proof uses Tauri IPC only for controller discovery/status
-            and uses controller-local HTTP for a crude but real multi-turn chat
-            loop.
-          </StimText>
-        </StimStack>
+  <StimAppRoot data-probe="landing-shell">
+    <StimSplit gap="none">
+      <SessionDrawer
+        :active-session-id="activeSession.id"
+        :collapsed="isSessionDrawerCollapsed"
+        :controller-status="controllerStatus"
+        :active-scope="activeSessionScope"
+        :session-query="sessionQuery"
+        :sessions="visibleSessions"
+        @new-conversation="handleNewConversation"
+        @select="activeSessionId = $event"
+        @toggle-collapse="isSessionDrawerCollapsed = !isSessionDrawerCollapsed"
+        @update:active-scope="activeSessionScope = $event"
+        @update:session-query="sessionQuery = $event"
+      />
 
-        <StimStack class="chat-thread" data-probe="chat-thread" gap="md">
-          <StimText
-            v-if="chatHistory.length === 0"
-            as="p"
-            tone="secondary"
-            size="body"
-          >
-            No messages yet.
-          </StimText>
-          <div v-for="entry in chatHistory" :key="entry.id">
-            <MessageCard :role="entry.role" :content="entry.content" />
-          </div>
-        </StimStack>
-
-        <StimStack class="landing-actions" data-probe="landing-actions" gap="sm">
-          <StimInput
-            v-model="draftText"
-            class="message-input"
-            data-probe="message-input"
-            type="text"
-          />
-          <StimInput
-            v-model="targetEndpointId"
-            class="message-input"
-            data-probe="target-endpoint-input"
-            type="text"
-          />
-          <StimButton
-            :label="isLoading ? 'Sending…' : 'Send message'"
-            @click="handleSend"
-          />
-          <StimButton label="New conversation" @click="handleNewConversation" />
-        </StimStack>
-
-        <StimInfoList class="debug-panel" gap="sm">
-          <div>
-            <dt>Controller state</dt>
-            <dd>{{ controllerStatus }}</dd>
-          </div>
-          <div>
-            <dt>Controller URL</dt>
-            <dd>{{ controllerBaseUrl }}</dd>
-          </div>
-          <div v-if="sendResult">
-            <dt>Conversation</dt>
-            <dd data-probe="active-conversation-id">
-              {{ sendResult.conversation_id }}
-            </dd>
-          </div>
-          <div v-if="sendResult">
-            <dt>Message</dt>
-            <dd>{{ sendResult.message_id }}</dd>
-          </div>
-          <div v-if="sendResult">
-            <dt>Target endpoint</dt>
-            <dd>{{ sendResult.target_endpoint_id }}</dd>
-          </div>
-          <div v-if="sendResult">
-            <dt>Response</dt>
-            <dd data-probe="last-response-text">
-              {{ sendResult.response_text }}
-            </dd>
-          </div>
-          <div v-if="sendResult">
-            <dt>Response source</dt>
-            <dd data-probe="last-response-source">
-              {{ sendResult.response_text_source }}
-            </dd>
-          </div>
-          <div v-if="sendResult">
-            <dt>Final sent text</dt>
-            <dd data-probe="last-final-sent-text">
-              {{ sendResult.final_sent_text }}
-            </dd>
-          </div>
-          <div v-if="sendResult">
-            <dt>Final version</dt>
-            <dd>{{ sendResult.final_message_version }}</dd>
-          </div>
-          <div v-if="sendResult">
-            <dt>Receipt</dt>
-            <dd>{{ sendResult.receipt_result }}</dd>
-          </div>
-          <div v-if="sendResult?.receipt_detail">
-            <dt>Receipt detail</dt>
-            <dd>{{ sendResult.receipt_detail }}</dd>
-          </div>
-          <template v-if="sendResult?.lifecycle_trace?.length">
-            <div
-              v-for="step in sendResult.lifecycle_trace"
-              :key="`${step.operation}-${step.sent_envelope_id}`"
-            >
-              <dt>Lifecycle {{ step.operation }}</dt>
-              <dd>
-                sent={{ step.sent_envelope_id }} ack={{
-                  step.ack_envelope_id
-                }}
-                v={{ step.ack_version }} source={{ step.response_text_source }}
-              </dd>
-            </div>
-          </template>
-          <template v-if="sendResult?.lifecycle_proof">
-            <div>
-              <dt>Proof versions</dt>
-              <dd>
-                create={{
-                  sendResult.lifecycle_proof.create_ack_version
-                }}
-                patch={{ sendResult.lifecycle_proof.patch_ack_version }} fix={{
-                  sendResult.lifecycle_proof.fix_ack_version
-                }}
-                final={{ sendResult.lifecycle_proof.final_message_version }}
-              </dd>
-            </div>
-            <div>
-              <dt>Proof final text</dt>
-              <dd>
-                expected={{
-                  sendResult.lifecycle_proof.expected_final_text
-                }}
-                observed={{ sendResult.lifecycle_proof.controller_final_text }}
-              </dd>
-            </div>
-            <div>
-              <dt>Proof checks</dt>
-              <dd>
-                versions={{
-                  sendResult.lifecycle_proof.version_progression_valid
-                }}
-                text={{
-                  sendResult.lifecycle_proof.final_text_matches_expected
-                }}
-              </dd>
-            </div>
-          </template>
-          <div v-if="errorMessage">
-            <dt>Error</dt>
-            <dd data-probe="last-error-message">{{ errorMessage }}</dd>
-          </div>
-        </StimInfoList>
-      </StimStack>
-    </StimSurface>
-  </StimViewportStage>
+      <MessagesPane
+        :active-conversation-id="activeConversationId"
+        :controller-base-url="controllerBaseUrl"
+        :controller-status="controllerStatus"
+        :draft-text="draftText"
+        :error-message="errorMessage"
+        :is-loading="isLoading"
+        :last-final-sent-text="sendResult?.final_sent_text ?? null"
+        :last-response-source="sendResult?.response_text_source ?? null"
+        :last-response-text="sendResult?.response_text ?? null"
+        :session="activeSession"
+        :target-endpoint-id="targetEndpointId"
+        @send="handleSend"
+        @update:draft-text="draftText = $event"
+        @update:target-endpoint-id="targetEndpointId = $event"
+      />
+    </StimSplit>
+  </StimAppRoot>
 </template>
