@@ -11,7 +11,7 @@ use stim_shared::{
         ControllerRuntimeBridgeRequest, ControllerRuntimeBridgeResponse, InspectBridgeRequest,
         InspectBridgeResponse, InspectResult, RendererProbeBridgeRequest,
         RendererProbeBridgeResponse, RendererProbeRequest, RendererProbeResult,
-        ScreenshotBridgeRequest, ScreenshotBridgeResponse, ScreenshotResult,
+        RendererProbeSnapshot, ScreenshotBridgeRequest, ScreenshotBridgeResponse, ScreenshotResult,
     },
     paths::{
         controller_runtime_bridge_request_path, controller_runtime_bridge_response_path,
@@ -377,12 +377,14 @@ fn restart_all(namespace: &str) -> Result<(), String> {
         ],
     )?;
     let _ = request_inspect_with_timeout(Duration::from_secs(15))?;
+    let renderer_landing = require_renderer_landing()?;
 
     let output = serde_json::to_string_pretty(&serde_json::json!({
         "namespace": namespace,
         "app": "all",
         "state": "ready",
         "renderer_endpoint": renderer_url,
+        "renderer_landing": renderer_landing,
         "controller_endpoint": controller_endpoint,
         "controller_instance_id": controller_instance_id,
         "unstamped_renderer_dev_cleanup": {
@@ -431,11 +433,13 @@ fn restart_tauri(namespace: &str) -> Result<(), String> {
         ],
     )?;
     let _ = request_inspect_with_timeout(Duration::from_secs(15))?;
+    let renderer_landing = require_renderer_landing()?;
 
     let output = serde_json::to_string_pretty(&serde_json::json!({
         "namespace": namespace,
         "app": "tauri",
         "state": "ready",
+        "renderer_landing": renderer_landing,
         "host_cleanup": {
             "already_stopped": host_stop.already_stopped,
             "matched_pids": host_stop.matched_pids,
@@ -839,12 +843,14 @@ fn status() -> Result<(), String> {
     let processes = stamped_processes_for_namespace(&namespace)?;
     let host = request_inspect_with_timeout(Duration::from_secs(15));
     let controller_runtime = request_controller_runtime_with_timeout(Duration::from_secs(15));
+    let renderer_landing = request_probe(RendererProbeRequest::LandingBasics);
 
     let output = serde_json::to_string_pretty(&serde_json::json!({
         "namespace": namespace,
         "checked_at": timestamp_now(),
         "host": bridge_result_json(host),
         "controller_runtime": bridge_result_json(controller_runtime),
+        "renderer_landing": renderer_probe_result_json(renderer_landing),
         "stamped_processes": process_list_json(&processes),
     }))
     .map_err(|error| format!("failed to serialize status output: {error}"))?;
@@ -858,11 +864,13 @@ fn list() -> Result<(), String> {
     let processes = stamped_processes_for_namespace(&namespace)?;
     let host = request_inspect_with_timeout(Duration::from_secs(2));
     let controller_runtime = request_controller_runtime_with_timeout(Duration::from_secs(2));
+    let renderer_landing = request_probe(RendererProbeRequest::LandingBasics);
     let output = serde_json::to_string_pretty(&serde_json::json!({
         "namespace": namespace,
         "live": {
             "host": bridge_result_json(host),
             "controller_runtime": bridge_result_json(controller_runtime),
+            "renderer_landing": renderer_probe_result_json(renderer_landing),
         },
         "stamped_processes": process_list_json(&processes),
     }))
@@ -1029,6 +1037,19 @@ fn bridge_result_json<T: serde::Serialize>(result: Result<T, String>) -> serde_j
     }
 }
 
+fn renderer_probe_result_json(result: Result<RendererProbeResult, String>) -> serde_json::Value {
+    match result {
+        Ok(RendererProbeResult::Success { snapshot }) => {
+            serde_json::json!({ "state": "available", "value": snapshot })
+        }
+        Ok(RendererProbeResult::Failure { reason }) => serde_json::json!({
+            "state": "unavailable",
+            "detail": format!("renderer probe failed: {:?}", reason),
+        }),
+        Err(error) => serde_json::json!({ "state": "unavailable", "detail": error }),
+    }
+}
+
 fn remove_tree_if_exists(path: &std::path::Path) -> Result<Option<String>, String> {
     if !path.exists() {
         return Ok(None);
@@ -1091,6 +1112,15 @@ fn request_probe(probe: RendererProbeRequest) -> Result<RendererProbeResult, Str
         }
 
         thread::sleep(Duration::from_millis(200));
+    }
+}
+
+fn require_renderer_landing() -> Result<RendererProbeSnapshot, String> {
+    match request_probe(RendererProbeRequest::LandingBasics)? {
+        RendererProbeResult::Success { snapshot } => Ok(snapshot),
+        RendererProbeResult::Failure { reason } => {
+            Err(format!("renderer landing probe failed: {:?}", reason))
+        }
     }
 }
 

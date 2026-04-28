@@ -16,7 +16,7 @@ import {
   type ControllerRuntimeSnapshot,
 } from "./controller/runtime";
 
-const draftText = ref("hello from stim ui");
+const draftText = ref("");
 const targetEndpointId = ref("endpoint-b");
 const controllerSnapshot = ref<ControllerRuntimeSnapshot | null>(null);
 const sendResult = ref<FirstMessageResponse | null>(null);
@@ -55,14 +55,18 @@ const staticSessions: SessionSummary[] = [
         "assistant",
         "Nora",
         "08:39",
-        textContent("The desktop drawer density is getting closer to the Feishu reference."),
+        textContent(
+          "The desktop drawer density is getting closer to the Feishu reference.",
+        ),
       ),
       createChatMessage(
         "design-2",
         "user",
         "You",
         "08:42",
-        textContent("Good, next we should tighten the message row spacing and unread emphasis."),
+        textContent(
+          "Good, next we should tighten the message row spacing and unread emphasis.",
+        ),
       ),
     ],
   },
@@ -80,7 +84,9 @@ const staticSessions: SessionSummary[] = [
         "assistant",
         "QA",
         "Yesterday",
-        textContent("Once the live controller thread is stable, we can route acceptance around it."),
+        textContent(
+          "Once the live controller thread is stable, we can route acceptance around it.",
+        ),
       ),
     ],
   },
@@ -144,7 +150,9 @@ const visibleSessions = computed(() => {
 
 const activeSession = computed(
   () =>
-    visibleSessions.value.find((session) => session.id === activeSessionId.value) ??
+    visibleSessions.value.find(
+      (session) => session.id === activeSessionId.value,
+    ) ??
     sessions.value.find((session) => session.id === activeSessionId.value) ??
     visibleSessions.value[0] ??
     sessions.value[0],
@@ -176,9 +184,16 @@ async function handleSend() {
     const pendingId = `pending-${Date.now()}`;
     optimisticMessageId.value = pendingId;
     liveMessages.value.push(
-      createChatMessage(pendingId, "user", "You", "Now", textContent(sentDraft), {
-        deliveryState: "sending",
-      }),
+      createChatMessage(
+        pendingId,
+        "user",
+        "You",
+        "Now",
+        textContent(sentDraft),
+        {
+          deliveryState: "sending",
+        },
+      ),
     );
     draftText.value = "";
 
@@ -244,7 +259,7 @@ function handleNewConversation() {
   sendResult.value = null;
   errorMessage.value = null;
   optimisticMessageId.value = null;
-  draftText.value = "hello from stim ui";
+  draftText.value = "";
 }
 
 function createChatMessage(
