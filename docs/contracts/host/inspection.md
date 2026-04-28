@@ -1,232 +1,157 @@
-# Host Inspection and Probe Contract
+# Host Status and Inspection Contract
 
-This document defines the current desktop inspection-plane surface exposed through `stim-dev`, the Tauri host, and the renderer probe bridge.
+This document defines the local desktop status and inspection surface exposed through `stim-dev`, the Tauri host, and the renderer inspection bridge.
 
-Read `docs/architecture/desktop/tauri-boundary.md` first for the higher-level rule that inspection belongs on the desktop control/discovery/inspection plane rather than the product business API surface.
+Read `docs/architecture/desktop/tauri-boundary.md` first for the higher-level rule that desktop control, discovery, and inspection stay separate from product business APIs.
 
 ## Scope
 
-This contract currently covers only local desktop verification helpers:
+The canonical local operator surface is:
 
-- `stim-dev screenshot [label]`
-- `stim-dev inspect`
-- `stim-dev controller-runtime`
-- `stim-dev acceptance [first-message|multi-turn|context-chat]`
-- `stim-dev probe [landing|first-message|multi-turn|context-chat]`
+- `stim-dev start [all|controller|renderer|tauri]`
+- `stim-dev restart [all|controller|renderer|tauri]`
+- `stim-dev status`
+- `stim-dev [--namespace <value>] list`
+- `stim-dev [--namespace <value>] stop`
+- `stim-dev [--namespace <value>] reset`
+- `stim-dev inspect <app> <subcommand>` where leaves are strictly enumerated:
+  - `stim-dev inspect tauri host`
+  - `stim-dev inspect tauri screenshot [label]`
+  - `stim-dev inspect renderer landing`
+  - `stim-dev inspect renderer messaging`
 
-These commands are for local observability of the desktop shell and renderer landing.
+These commands are for local lifecycle, recovery, status, and UI evidence collection. They are not a general-purpose product API, renderer automation surface, or scripted chat harness.
 
-They are not a general-purpose product API, and they are not a renderer automation surface.
+## Command rules
 
-They are also the canonical local recovery/acceptance surface: prefer extending `stim-dev` with new bounded restart, reuse, or acceptance behavior instead of teaching operators ad hoc process-management recipes.
+### `stim-dev start [all|controller|renderer|tauri]`
 
-## Quick reading guide
+Starts the requested local dev-loop surface.
 
-Use this file when the question is:
+`start` must fail fast when an existing instance is detected for the selected namespace. It should not implicitly stop or reuse the existing instance. The operator must run `stim-dev stop` or `stim-dev restart` explicitly.
 
-- what `stim-dev` is allowed to expose
-- what kind of scripted acceptance is stable enough to keep
-- how local recovery should happen without hand-managed process choreography
+### `stim-dev restart [all|controller|renderer|tauri]`
 
-## Boundary rules
+Stops the matching stamped process surface and then starts the requested target.
 
-- `screenshot` captures host-visible main-window truth and returns a file path.
-- `inspect` returns a host-owned structured snapshot about the app, window, and monitor state.
-- `controller-runtime` returns host-owned controller snapshot/heartbeat truth from the Tauri-local sidecar bridge.
-- `acceptance` returns one bounded operator verification payload that combines host controller-runtime truth with a named renderer acceptance probe.
-- `probe` returns a renderer-owned structured snapshot for a **named** read-only probe.
+Use `restart` for recovery instead of flags such as `start renderer --force` or `start tauri --reuse-renderer`.
 
-## Script-versus-chat rule
+### `stim-dev status`
 
-Use inspection automation to constrain only the parts of the loop that are already stable enough to be treated as boundary truth, such as:
+Returns one IPC-backed runtime status payload for the current namespace.
 
-- whether `stim` is attached to the intended local runtime target
-- whether the visible UI loop advances without errors
-- whether later turns reuse the same conversation
-- whether chat history visibly grows in the expected direction
-- whether the visible assistant card shape still follows the expected bounded content path (for example text versus structured fragment)
+The status payload combines:
 
-Do **not** treat open-ended agent chat behavior as a fully scriptable contract yet.
+- live host/window reachability when the Tauri inspection bridge is available
+- live controller runtime snapshot and heartbeat when the controller bridge is available
+- stamped process evidence for cleanup and diagnosis
 
-- scripted checks may still drive real UI turns
-- but they should avoid overfitting to one exact model wording or one brittle reply path
-- the purpose is to verify stable boundaries, not to pretend current agent semantics are already deterministic
+Runtime truth comes from live IPC/inspection/probe surfaces. Stamp/process evidence is cleanup and leak-boundary evidence, not the source of runtime truth.
 
-When a conversational behavior is still exploratory, validate it through real turn-by-turn interaction and judgment, then promote only the durable parts into scripted acceptance once they have proven stable over time.
+### `stim-dev [--namespace <value>] list`
 
-Positive examples of good scripted acceptance truth:
+Returns the namespace process view plus the same live IPC reachability evidence used by `status`.
 
-- controller attached to the intended target
-- chat history visibly grew
-- the same conversation id was reused
-- the visible assistant card still used the expected bounded content shape
+Namespace selection is injected with `--namespace <value>`. If omitted, `default` is the fallback namespace. Do not pass the namespace as a positional command argument such as `stim-dev list dev-a`.
 
-Negative examples that should stay exploratory:
+### `stim-dev [--namespace <value>] stop`
 
-- one exact open-ended wording being treated as the only correct reply
-- assuming current model phrasing is deterministic enough for release gating
-- using the CLI as a general renderer automation surface
+Stops stamped process trees for the namespace.
 
-The contract intentionally does **not** expose:
+This is a fallback cleanup action for launcher-managed processes, not a graceful product workflow.
 
-- arbitrary JavaScript evaluation
-- arbitrary CSS selector queries from the CLI
-- general renderer mutation/control commands
-- product/business workflow actions
+### `stim-dev [--namespace <value>] reset`
 
-## Command shapes
+Runs `stop`, then removes namespace-scoped disposable logs, bridges, and locks.
 
-### `stim-dev screenshot [label]`
+`reset` must not remove persistent product data or persisted runtime truth files. Runtime truth is live IPC/inspection/probe state; reset only clears disposable local coordination and diagnostic residue.
 
-Returns the emitted screenshot file path.
+## `inspect` leaves
 
-The host captures the desktop main window and writes the artifact under `.tmp/dev/inspection/main-window-screenshots/`.
+All Tauri + renderer UI debugging and evidence collection belongs under `inspect <app> <subcommand>`. The tree is strictly enumerated: do not add default inspect targets, implied apps, or guessed subcommands.
 
-### `stim-dev inspect`
+### `stim-dev inspect tauri host`
 
-Returns a JSON snapshot with host-owned facts such as:
+Returns host-owned structured state:
 
 - app/package identity
 - expected renderer origin
-- window label/title/url
+- main window label/title/url
 - size/position/visibility/focus/minimize/maximize/fullscreen state
-- enabled/decorated/resizable state
-- current and primary monitor snapshots
-- available monitor count
+- decoration/resizable/enabled state
+- monitor snapshots
 
-### `stim-dev controller-runtime`
+### `stim-dev inspect renderer landing`
 
-Returns a JSON payload with:
+Returns renderer-owned landing state without mutating the page:
 
-- controller runtime snapshot
-- controller heartbeat
-
-This is the operator-facing command for checking the current Tauri-local controller attach target,
-published HTTP base URL, ready/degraded state, and detail text such as compose-default versus env-override target selection.
-
-### `stim-dev acceptance [first-message|multi-turn|context-chat]`
-
-Returns a JSON payload that combines:
-
-- controller runtime snapshot + heartbeat
-- renderer `first-message` probe result
-
-Current supported acceptance target:
-
-- `first-message`
-- `multi-turn`
-- `context-chat` (exploratory)
-
-Use this when you want one operator command to verify both:
-
-- the controller attached to the intended local runtime target
-- the visible first-message UI loop still succeeds
-
-`multi-turn` extends that same operator path to a bounded two-turn renderer proof. It resets the crude chat UI, sends two predefined turns through the existing UI controls, and returns whether the second turn reused the first turn's `conversation_id` while appending the expected chat history.
-
-`context-chat` is an exploratory inspect-driven semantic probe. It drives a few real UI turns through the visible `stim` controls and reports useful context-retention evidence, but it is not a release-grade pass/fail contract for open-ended chat correctness.
-
-Because it drives three real turns through the renderer, the host CLI gives `context-chat` a longer probe timeout budget than the single-turn or two-turn checks.
-
-Treat it as:
-
-- a way to observe whether context appears to persist across turns
-- a way to surface obvious regressions in visible multi-turn usability
-- a bridge toward future stable acceptance criteria
-
-Do not treat it as:
-
-- proof that one exact wording path defines correctness
-- proof that current agent chat semantics are deterministic
-- a substitute for real turn-by-turn operator judgment while the behavior is still evolving
-
-Current posture:
-
-- keep this command as a raw JSON diagnostic surface for now
-- do not collapse it into a stricter pass/fail assertion mode until the acceptance criteria are stable enough to stop changing
-
-## Dev-loop recovery rule
-
-When local renderer/package changes leave the desktop loop stale, recover through bounded `stim-dev` entrypoints rather than hand-managed process cleanup.
-
-Current preferred recovery path:
-
-- `stim-dev start renderer --force`
-- `stim-dev start tauri --reuse-renderer`
-
-If that pattern stops being sufficient, extend the CLI contract explicitly instead of normalizing one-off shell recipes.
-
-### `stim-dev probe [landing|first-message|multi-turn|context-chat]`
-
-Returns a JSON snapshot for a named renderer probe.
-
-Current supported probe:
-
-- `landing` → `landing-basics`
-- `first-message` → `first-message-result`
-- `multi-turn` → `multi-turn-result`
-- `context-chat` → `context-chat-result` (exploratory)
-
-`landing-basics` reports:
-
-- `document_ready_state`
-- `document_title`
-- landing shell presence
-- landing card presence
-- session drawer presence
-- whether the session drawer is currently collapsed
+- document ready state and title
+- landing shell/card presence
+- session drawer presence and collapsed state
 - landing heading text
 - primary action label
-- active session id for the current drawer selection
+- active session id
 
-`first-message-result` reports the current last visible response/debug block and, if needed, triggers one bounded send through the existing primary action.
+### `stim-dev inspect renderer messaging`
 
-It also reports whether the visible last assistant card is currently rendered through the shared fragment path, via:
+Returns renderer-owned messaging state without mutating the page:
 
-- `assistant_response_content_kind`
-- `assistant_fragment_present`
+- active session id
+- active conversation id
+- total/user/assistant visible message counts
+- last visible user and assistant text
+- last response/final-sent debug text when visible
+- last error text when visible
+- assistant content kind and fragment presence
+- primary action label
 
-`multi-turn-result` reports a bounded two-turn chat proof with:
+This command is an observation primitive. It must not click, type, send, reset, or wait for a chat turn.
 
-- first-turn response/final-sent text
-- second-turn response/final-sent text
-- first/second `conversation_id`
-- whether the same conversation was reused across both turns
-- total/user/assistant chat-entry counts
-- the last assistant card content kind and whether a structured fragment node is visibly present
-- visible error text, if any
+### `stim-dev inspect tauri screenshot [label]`
 
-`context-chat-result` reports exploratory evidence from a bounded three-turn semantic chat run with:
+Captures the host-visible main window and returns the artifact path.
 
-- the remember / recall / count replies
-- the shared `conversation_id`
-- whether all three turns stayed on the same conversation
-- whether the recall reply matched `blue cactus`
-- whether the count reply matched `2`
-- total/user/assistant chat-entry counts
-- visible error text, if any
+Although it writes an artifact, it belongs under `inspect` because it is UI-debug evidence collection across Tauri and renderer state.
 
-Use those fields as evidence for current behavior, not as a claim that agent chat is already stable enough for one exact scripted answer path to define correctness by itself.
+## Manual send-message verification
 
-`chat-turn-result` also reports the last assistant card content kind plus fragment presence so sequential inspect-driven runs can distinguish the shared `stim-dom-fragment` render path from fallback shapes.
+Sending a message is currently a manual UI operation, not a `stim-dev` command.
 
-If repeated real usage shows some subset of these semantics becoming durable and predictable, promote only that stable subset into stricter scripted acceptance.
+Recommended verification sequence:
+
+1. Run `stim-dev status`.
+2. Run `stim-dev inspect tauri host`.
+3. Run `stim-dev inspect renderer landing`.
+4. In the desktop UI, select the live controller session, enter the message, and click `Send message`.
+5. Run `stim-dev inspect renderer messaging`.
+6. Optionally run `stim-dev inspect tauri screenshot after-send`.
+
+Operator judgment should check stable evidence only:
+
+- controller/host are reachable
+- the live session is active
+- no visible error is present
+- user and assistant message counts increased as expected
+- a conversation id is visible when a live turn succeeds
+- assistant content shape remains on the expected rendered path
+
+Do not gate local verification on one exact open-ended model wording.
+
+## Non-goals
+
+The contract intentionally does not expose:
+
+- arbitrary JavaScript evaluation
+- arbitrary CSS selector queries from the CLI
+- CLI-driven chat send/reset/turn automation
+- aggregate acceptance commands that combine sending, waiting, and semantic judgment
+- product/business workflow actions
+
+If a future web harness boundary becomes mature enough to expose declared app operations safely, add that as a new explicit contract. Do not grow hidden renderer automation inside `stim-dev`.
 
 ## Ownership split
 
-- `crates/shared/` owns the shared inspection/probe contract shapes.
+- `crates/shared/` owns the shared status/inspection/probe contract shapes.
 - `tools/stim-dev/` owns the local operator command surface.
-- `apps/tauri/src-tauri/` owns the host bridge, request handling, and host-owned inspection snapshot.
-- `apps/renderer/` owns the renderer-side implementation of named read-only probes.
-
-The renderer must answer only predeclared probe names with predeclared snapshot schemas.
-
-## Extension rule
-
-When adding more verification surface:
-
-1. prefer a new named read-only probe over a generalized query mechanism
-2. keep host-owned facts in `inspect`
-3. keep renderer-owned facts in named `probe` responses
-4. constrain scripts around stable boundaries first; only script conversational semantics after they have become durable enough to count as a real contract
-5. do not add arbitrary eval unless a real need forces a tighter explicit design
+- `apps/tauri/src-tauri/` owns the host bridge, request handling, and host-owned inspection snapshots.
+- `apps/renderer/vite/` owns renderer-side implementation of declared read-only inspection snapshots.

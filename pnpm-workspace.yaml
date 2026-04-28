@@ -1,4 +1,4 @@
 packages:
-  - apps/renderer
+  - apps/renderer/vite
   - apps/tauri
   - packages/*

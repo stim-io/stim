@@ -40,7 +40,7 @@ function partKey(part: MessagePart, index: number) {
 
 <template>
   <StimMessageCardFrame
-    class="chat-bubble"
+    data-probe="chat-bubble"
     :data-role="role"
     :role-tone="role"
     :layout-family="layout.layoutFamily"

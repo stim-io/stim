@@ -40,27 +40,110 @@ When `stim` grows into a real client repo, prefer a shape recognizable along the
 stim/
   apps/
     renderer/
+      vite/
     tauri/
     controller/
+    packaged/
   crates/
+    platform/
+    sidecar/
     shared/
   tools/
     stim-dev/
   docs/
 ```
 
-- `apps/renderer/` is the client application boundary
+- `apps/renderer/` is the renderer delivery boundary: the Rust wrapper lives at the boundary root, while the product Vite app lives under `apps/renderer/vite/`
 - `apps/tauri/` is the desktop host shell boundary
 - `apps/controller/` is the local controller/runtime boundary
+- `apps/packaged/` is the thin packaged/runtime launcher boundary
+- `crates/platform/` owns platform facts and primitives
+- `crates/sidecar/` owns sidecar namespace, layout, ready/inspect, and stamp primitives
 - `crates/` holds non-UI Rust support layers
 - `tools/` holds repo-local Rust developer tools and operational entrypoints
 - `docs/` is the durable architecture/contract/operations boundary
 
 The internal Tauri `src-tauri/` directory is treated as an implementation detail of `apps/tauri/`, not as the repo's top-level architecture shape.
 
+## Sidecar and platform stance
+
+Use `sidecar-mode` for the launcher-owned mode of a sidecar app instance.
+
+The only valid sidecar-mode values are:
+
+- `dev`
+- `runtime`
+
+Do not use `runtime-mode` for this concept; that name conflicts with the `runtime` enum value and makes launcher mode ambiguous.
+
+`crates/platform/` owns low-level platform facts only:
+
+- path derivation
+- process spawning and process table access
+- network binding helpers
+- environment normalization
+- file locks
+- OS and architecture detection
+
+`crates/platform/` must not own sidecar identity, app lifecycle policy, controller attach targets, inspection schemas, or business protocol behavior.
+
+`crates/sidecar/` owns local sidecar control-plane primitives:
+
+- namespace defaults
+- sidecar app identity
+- sidecar-mode parsing
+- stamp argument construction and parsing
+- namespace-scoped layout for logs, locks, and bridges
+- stamped-process matching and cleanup concepts
+
+The argv stamp is deliberately low-dimensional:
+
+- `app`
+- `namespace`
+- `sidecar-mode`
+- `source`
+
+Do not put role, instance id, endpoint, health, or richer lifecycle facts into stamp args. Those facts are live runtime facts and should be carried by ready-line / inspect / health communication.
+
+`crates/sidecar/` must not own product/business APIs.
+
+Do not introduce persisted runtime truth files such as `state.json`, `runtime.json`, or `heartbeat.json`. Runtime truth should be produced by live inspect/probe/health surfaces. Stamps define cleanup ownership and worst-case process leak boundaries; locks define startup exclusion only.
+
+## `apps/packaged/` ownership
+
+`apps/packaged/` should own the packaged/runtime launcher once that entry exists.
+
+It may:
+
+- choose namespace and sidecar-mode for packaged assembly
+- stamp direct child sidecar processes
+- launch packaged renderer, controller, and Tauri sidecar instances
+- wait for startup readiness through a live ready handshake or inspect surface
+- apply packaged resource and path selection
+
+It should not:
+
+- become a product host
+- own business protocol behavior
+- proxy controller HTTP APIs
+- maintain a persistent runtime registry
+- duplicate `stim-dev` operator-only commands
+
+The executable surface is intentionally thin:
+
+- `stim-packaged --plan --namespace <value>` prints the runtime sidecar assembly.
+- `stim-packaged launch controller --namespace <value>` starts the packaged controller sidecar in the foreground.
+- `stim-packaged launch renderer --namespace <value>` delegates renderer delivery to `stim-renderer --runtime`, emits a renderer-delivery ready line, and holds a stamped runner process so fallback cleanup has a process boundary.
+- `stim-packaged launch tauri --namespace <value>` starts the Tauri host as a stamped runner process and passes namespace and sidecar-mode into the host.
+- `stim-packaged launch all --namespace <value>` starts renderer delivery, controller runtime, and Tauri host as top-level runtime sidecars. The packaged launcher injects the controller endpoint into Tauri so the host attaches instead of starting its own controller child.
+
+Each launch path waits for a live ready line, validates the 4-field stamp plus live role, prints readiness, and then waits on the child or runner process. The hidden runners are implementation details used to keep third-party tool argv clean while preserving stamped process-tree cleanup.
+
+Tauri should load the renderer through a URL supplied by launcher-owned launch configuration. Packaged and dev composition write the renderer-delivery launch bridge under `.tmp/sidecars/<sidecar-mode>/<namespace>/bridges/renderer-delivery/launch.json`; the Tauri host reads it without treating it as persisted runtime truth.
+
 ## `apps/renderer/` ownership
 
-`apps/renderer/` should own the product client application.
+`apps/renderer/` should own renderer delivery as a whole. The Rust `stim-renderer` wrapper belongs at the boundary root, and the product Vite application belongs in `apps/renderer/vite/`.
 
 That includes:
 
@@ -77,7 +160,9 @@ That includes:
 - desktop-native capability implementations
 - broad host-control plumbing
 
-## Suggested sub-split inside `apps/renderer/src/`
+The Rust `stim-renderer` binary owns renderer delivery. In dev mode it starts the Vite server from `apps/renderer/vite/` and emits the renderer-delivery ready line. In runtime mode it serves built static assets and emits the same ready-line role with the bound endpoint.
+
+## Suggested sub-split inside `apps/renderer/vite/src/`
 
 Prefer a split that keeps these concerns recognizably separate:
 
@@ -90,7 +175,7 @@ Prefer a split that keeps these concerns recognizably separate:
 
 The exact names may change. The ownership split should not.
 
-## `apps/renderer/src/services/` rule
+## `apps/renderer/vite/src/services/` rule
 
 If the client talks to `stim-server` or `santi`, that communication should converge in a service-facing area such as `src/services/`.
 
@@ -107,7 +192,7 @@ It should not own:
 - desktop runtime lifecycle logic
 - broad UI state management
 
-## `apps/renderer/src/platform/` rule
+## `apps/renderer/vite/src/platform/` rule
 
 If the web app needs access to host capabilities, keep that usage behind thin platform adapters.
 
@@ -123,7 +208,7 @@ It should not become:
 - a dumping ground for mixed feature logic
 - a hidden second business-backend surface
 
-## `apps/renderer/src/components/` rule
+## `apps/renderer/vite/src/components/` rule
 
 `stim` may define app-local components for:
 

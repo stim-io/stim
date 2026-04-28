@@ -1,7 +1,11 @@
 [workspace]
 members = [
+  "apps/packaged",
+  "apps/renderer",
   "apps/tauri/src-tauri",
   "apps/controller",
+  "crates/platform",
+  "crates/sidecar",
   "crates/shared",
   "tools/stim-dev"
 ]
@@ -13,4 +17,6 @@ license = "MIT"
 version = "0.1.0"
 
 [workspace.dependencies]
+stim-platform = { path = "crates/platform" }
+stim-sidecar = { path = "crates/sidecar" }
 stim-shared = { path = "crates/shared" }

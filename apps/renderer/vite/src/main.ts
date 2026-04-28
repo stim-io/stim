@@ -10,7 +10,9 @@ function renderBootstrapError(error: unknown) {
   const message =
     error instanceof Error ? (error.stack ?? error.message) : String(error);
 
-  target.innerHTML = `<pre style="padding:16px;white-space:pre-wrap;color:#b91c1c;">bootstrap failed\n\n${message}</pre>`;
+  const pre = document.createElement("pre");
+  pre.textContent = `bootstrap failed\n\n${message}`;
+  target.replaceChildren(pre);
 }
 
 async function bootstrap() {

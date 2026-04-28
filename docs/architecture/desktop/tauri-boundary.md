@@ -15,6 +15,8 @@ That shell exists to:
 
 It does not exist to become the primary business protocol layer.
 
+When `apps/packaged/` is introduced, Tauri should still be understood as the desktop host authority, but it may be launched and managed as a stamped sidecar app instance by the packaged launcher or by `stim-dev`.
+
 ## Quick reading guide
 
 Use this file when the question is:
@@ -130,6 +132,12 @@ If local sidecars or helper processes are used, keep their boundary explicit.
 For `stim`, the controller should be treated as a Tauri-local sidecar/runtime component rather than as a separate long-term service form.
 Do not spend design effort on promoting controller into an independently managed runtime shape inside this project.
 
+The sidecar-mode name is reserved for launcher-owned sidecar instance mode. Its values are only `dev` and `runtime`. Do not use `runtime-mode` for this concept.
+
+For launcher-managed local composition, Tauri, controller, and renderer delivery may all be modeled as stamped sidecar app instances. This does not make them equivalent business services; it only gives startup, inspection, and cleanup a shared control-plane ownership model.
+
+Stamp args are only `app + namespace + sidecar-mode + source`. Role, instance id, endpoint, readiness, and health are live facts from ready-line / inspect / health surfaces.
+
 The Tauri host may:
 
 - decide whether a local runtime is enabled
@@ -144,6 +152,18 @@ The Tauri host should not:
 - redefine service semantics in command handlers
 - mix runtime lifecycle logic with product UI composition logic
 
+Current implementation stance:
+
+- Tauri creates the main window in code and loads the renderer URL from the mode-separated renderer-delivery launch bridge, falling back to the local renderer dev URL only when that bridge is absent.
+- Tauri starts the local controller through a stamped `stim-controller serve` sidecar process.
+- In development, Tauri may launch that process through `cargo run -p stim-controller -- serve ...`; `STIM_CONTROLLER_BIN` can override this with a direct binary path.
+- Tauri defaults its controller child to `sidecar-mode=dev`, but packaged launch can set `STIM_SIDECAR_MODE=runtime` so the hosted controller joins the runtime composition.
+- Packaged launch can also set `STIM_CONTROLLER_ENDPOINT` and `STIM_CONTROLLER_INSTANCE_ID`; in that mode Tauri attaches to the externally launched controller instead of spawning a child.
+- Renderer delivery is owned by `stim-renderer`; launchers write only the renderer URL handoff under `.tmp/sidecars/<sidecar-mode>/<namespace>/bridges/renderer-delivery/launch.json`.
+- The controller sidecar emits a ready line with its live role, instance id, and HTTP endpoint.
+- Tauri keeps either an owned child handle or an attached endpoint and generates controller runtime responses from that live runtime relationship.
+- No runtime truth is stored in a state file.
+
 For multi-sidecar development or runtime composition, IPC should stay namespaced and small:
 
 - publish which sidecar instance is current
@@ -152,6 +172,8 @@ For multi-sidecar development or runtime composition, IPC should stay namespaced
 - give the host enough authority to attach, recover, or report failure clearly
 
 That IPC truth should make HTTP attach targets trustworthy; it should not replace HTTP as the real business surface.
+
+Runtime truth should not be persisted in state files. Use live inspect/probe/health responses for current operational facts. Stamp arguments are only a cleanup ownership boundary and fallback index for leaked processes; locks are only startup exclusion.
 
 ## Authority rule
 
@@ -194,7 +216,7 @@ Namespace and isolation policy should be explicit infrastructure, not accidental
 
 Exact file paths may evolve, but the split should stay recognizable:
 
-- web app code under `apps/renderer/`
+- web app code under `apps/renderer/vite/`
 - Tauri host/bootstrap/control code under `apps/tauri/`, with the internal `src-tauri/` directory treated as a tooling detail rather than the repo's top-level architecture model
 - service clients separate from host-control clients
 - shared host/app contract shapes defined once when truly needed
