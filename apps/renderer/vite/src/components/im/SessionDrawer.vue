@@ -103,7 +103,7 @@ const emit = defineEmits<{
           <StimBadge
             v-if="!collapsed"
             size="sm"
-            :tone="controllerStatus === 'ready' ? 'accent' : 'muted'"
+            tone="muted"
           >
             {{ controllerStatus }}
           </StimBadge>
@@ -121,11 +121,11 @@ const emit = defineEmits<{
       </StimInline>
 
       <StimButton
-        label="New conversation"
+        label="+ New conversation"
         aria-label="New conversation"
         data-probe="new-conversation-button"
         size="sm"
-        variant="secondary"
+        variant="ghost"
         @click="emit('newConversation')"
       />
 
