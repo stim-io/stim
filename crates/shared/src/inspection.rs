@@ -67,10 +67,7 @@ pub struct RendererProbeBridgeResponse {
 #[serde(tag = "probe", rename_all = "kebab-case")]
 pub enum RendererProbeRequest {
     LandingBasics,
-    FirstMessageResult,
-    MultiTurnResult,
-    ContextChatResult,
-    ChatTurn { text: String, reset: bool },
+    MessagingState,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,10 +95,7 @@ pub struct RendererProbeSnapshot {
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum RendererProbeSnapshotKind {
     LandingBasics(RendererLandingBasicsSnapshot),
-    FirstMessageResult(RendererFirstMessageResultSnapshot),
-    MultiTurnResult(RendererMultiTurnResultSnapshot),
-    ContextChatResult(RendererContextChatResultSnapshot),
-    ChatTurnResult(RendererChatTurnResultSnapshot),
+    MessagingState(RendererMessagingStateSnapshot),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,63 +112,18 @@ pub struct RendererLandingBasicsSnapshot {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RendererFirstMessageResultSnapshot {
+pub struct RendererMessagingStateSnapshot {
     pub document_ready_state: String,
+    pub active_session_id: Option<String>,
+    pub active_conversation_id: Option<String>,
+    pub chat_entry_count: usize,
+    pub user_entry_count: usize,
+    pub assistant_entry_count: usize,
+    pub last_user_text: Option<String>,
+    pub last_assistant_text: Option<String>,
     pub response_text: Option<String>,
     pub response_source: Option<String>,
     pub final_sent_text: Option<String>,
-    pub assistant_response_content_kind: Option<String>,
-    pub assistant_fragment_present: bool,
-    pub error_message: Option<String>,
-    pub primary_action_label: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RendererMultiTurnResultSnapshot {
-    pub document_ready_state: String,
-    pub first_response_text: Option<String>,
-    pub second_response_text: Option<String>,
-    pub first_final_sent_text: Option<String>,
-    pub second_final_sent_text: Option<String>,
-    pub first_conversation_id: Option<String>,
-    pub second_conversation_id: Option<String>,
-    pub same_conversation_reused: bool,
-    pub chat_entry_count: usize,
-    pub user_entry_count: usize,
-    pub assistant_entry_count: usize,
-    pub assistant_response_content_kind: Option<String>,
-    pub assistant_fragment_present: bool,
-    pub error_message: Option<String>,
-    pub primary_action_label: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RendererContextChatResultSnapshot {
-    pub document_ready_state: String,
-    pub remember_response_text: Option<String>,
-    pub recall_response_text: Option<String>,
-    pub count_response_text: Option<String>,
-    pub conversation_id: Option<String>,
-    pub same_conversation_reused: bool,
-    pub recall_matches_expected_phrase: bool,
-    pub count_matches_expected_words: bool,
-    pub chat_entry_count: usize,
-    pub user_entry_count: usize,
-    pub assistant_entry_count: usize,
-    pub error_message: Option<String>,
-    pub primary_action_label: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RendererChatTurnResultSnapshot {
-    pub document_ready_state: String,
-    pub sent_text: String,
-    pub response_text: Option<String>,
-    pub final_sent_text: Option<String>,
-    pub conversation_id: Option<String>,
-    pub chat_entry_count: usize,
-    pub user_entry_count: usize,
-    pub assistant_entry_count: usize,
     pub assistant_response_content_kind: Option<String>,
     pub assistant_fragment_present: bool,
     pub error_message: Option<String>,

@@ -6,7 +6,7 @@ Published `@stim-io` package consumption should go through GitHub Packages via t
 
 Current cold-start structure:
 
-- `apps/renderer`: Vue landing application
+- `apps/renderer`: renderer delivery wrapper, with the Vue/Vite application under `apps/renderer/vite`
 - `apps/tauri`: Tauri platform shell
 - `apps/controller`: Rust controller placeholder
 - `crates/shared`: shared Rust primitives for non-UI layers

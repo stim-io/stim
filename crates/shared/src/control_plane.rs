@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_IPC_NAMESPACE: &str = "default";
-pub const IPC_NAMESPACE_ENV: &str = "STIM_IPC_NAMESPACE";
+pub const DEFAULT_SIDECAR_NAMESPACE: &str = "default";
+pub const SIDECAR_NAMESPACE_ENV: &str = "STIM_SIDECAR_NAMESPACE";
+pub const LEGACY_IPC_NAMESPACE_ENV: &str = "STIM_IPC_NAMESPACE";
+
+pub const DEFAULT_IPC_NAMESPACE: &str = DEFAULT_SIDECAR_NAMESPACE;
+pub const IPC_NAMESPACE_ENV: &str = LEGACY_IPC_NAMESPACE_ENV;
 
 const CONTROL_PREFIX: &str = "stim://control";
 const CONTROLLER_RUNTIME_SNAPSHOT_TOPIC: &str = "controller/runtime/snapshot";
@@ -10,7 +14,7 @@ const CONTROLLER_RUNTIME_HEARTBEAT_TOPIC: &str = "controller/runtime/heartbeat";
 pub fn namespace_or_default(namespace: Option<&str>) -> &str {
     namespace
         .filter(|value| !value.trim().is_empty())
-        .unwrap_or(DEFAULT_IPC_NAMESPACE)
+        .unwrap_or(DEFAULT_SIDECAR_NAMESPACE)
 }
 
 pub fn namespaced_control_topic(namespace: &str, topic: &str) -> String {
@@ -55,6 +59,14 @@ pub struct ControllerRuntimeHeartbeat {
     pub published_at: String,
     pub sequence: u64,
     pub state: ControllerRuntimeState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RendererDeliveryLaunchBridge {
+    pub namespace: String,
+    pub renderer_url: String,
+    pub source: String,
+    pub published_at: String,
 }
 
 #[cfg(test)]

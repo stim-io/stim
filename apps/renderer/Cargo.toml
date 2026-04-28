@@ -1,0 +1,13 @@
+[package]
+name = "stim-renderer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+axum = "0.8"
+serde_json = "1"
+stim-shared.workspace = true
+stim-sidecar.workspace = true
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros"] }
+tower-http = { version = "0.6", features = ["fs"] }

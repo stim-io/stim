@@ -4,21 +4,13 @@
   "version": "0.1.0",
   "identifier": "io.stim.app",
   "build": {
-    "beforeDevCommand": "pnpm --dir ../renderer dev --host 127.0.0.1 --port 1420",
-    "beforeBuildCommand": "pnpm --dir ../renderer build",
+    "beforeDevCommand": "pnpm --dir ../renderer/vite dev --host 127.0.0.1 --port 1420",
+    "beforeBuildCommand": "pnpm --dir ../renderer/vite build",
     "devUrl": "http://127.0.0.1:1420",
-    "frontendDist": "../renderer/dist"
+    "frontendDist": "../renderer/vite/dist"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "stim",
-        "width": 1200,
-        "height": 820,
-        "resizable": true
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }

@@ -127,12 +127,7 @@ fn request_renderer_probe<R: Runtime>(
 fn renderer_probe_timeout(probe: &stim_shared::inspection::RendererProbeRequest) -> Duration {
     match probe {
         stim_shared::inspection::RendererProbeRequest::LandingBasics => Duration::from_secs(10),
-        stim_shared::inspection::RendererProbeRequest::FirstMessageResult => {
-            Duration::from_secs(30)
-        }
-        stim_shared::inspection::RendererProbeRequest::MultiTurnResult => Duration::from_secs(45),
-        stim_shared::inspection::RendererProbeRequest::ContextChatResult => Duration::from_secs(75),
-        stim_shared::inspection::RendererProbeRequest::ChatTurn { .. } => Duration::from_secs(30),
+        stim_shared::inspection::RendererProbeRequest::MessagingState => Duration::from_secs(10),
     }
 }
 
@@ -165,14 +160,14 @@ mod tests {
     use stim_shared::inspection::RendererProbeRequest;
 
     #[test]
-    fn context_chat_probe_gets_longer_renderer_budget() {
+    fn renderer_inspection_probes_have_short_timeout_budgets() {
         assert_eq!(
-            renderer_probe_timeout(&RendererProbeRequest::ContextChatResult),
-            Duration::from_secs(75)
+            renderer_probe_timeout(&RendererProbeRequest::LandingBasics),
+            Duration::from_secs(10)
         );
         assert_eq!(
-            renderer_probe_timeout(&RendererProbeRequest::MultiTurnResult),
-            Duration::from_secs(45)
+            renderer_probe_timeout(&RendererProbeRequest::MessagingState),
+            Duration::from_secs(10)
         );
     }
 }
