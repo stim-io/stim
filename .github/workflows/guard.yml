@@ -13,9 +13,21 @@ jobs:
   guard:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: stim
+
     steps:
-      - name: Checkout
+      - name: Checkout stim
         uses: actions/checkout@v6
+        with:
+          path: stim
+
+      - name: Checkout stim-packages
+        uses: actions/checkout@v6
+        with:
+          repository: stim-io/stim-packages
+          path: stim-packages
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v5
@@ -25,6 +37,7 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+          cache-dependency-path: stim/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
