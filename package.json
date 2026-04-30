@@ -8,6 +8,7 @@
     "build:renderer": "pnpm -C packages/client build && pnpm -C apps/renderer/vite build",
     "format:check": "pnpm exec prettier --check .",
     "generate:client": "pnpm -C packages/client generate",
+    "guard": "pnpm run typecheck:renderer",
     "typecheck:client": "pnpm -C packages/client typecheck",
     "typecheck:renderer": "pnpm -C packages/client build && pnpm -C apps/renderer/vite typecheck"
   },

@@ -36,7 +36,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - `main` should advance through PRs rather than direct pushes.
 - Keep force-push protection and branch-deletion protection enabled for `main`.
 - Keep squash merge as the default history strategy.
-- Keep required green checks in front of merge once `.github/workflows/ci.yml` is active.
+- Keep required green checks in front of merge once `.github/workflows/guard.yml` is active.
 
 ## Common Commands
 
@@ -44,6 +44,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Normal `stim-dev` usage should call the installed CLI directly; use `cargo run -p stim-dev -- ...` only as a local fallback while iterating on `stim-dev` itself or debugging a narrow command implementation.
 - Format workspace: `pnpm exec prettier --write .`
 - Check formatting: `pnpm exec prettier --check .`
+- Run repo guard: `pnpm run guard`
 - Start full local app loop: `stim-dev start`
 - Start controller-focused loop: `stim-dev start controller`
 - Start renderer-focused loop: `stim-dev start renderer`
@@ -92,6 +93,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - `apps/renderer/`: renderer delivery sidecar wrapper plus Vite app under `apps/renderer/vite/`
 - `crates/platform/`: platform primitive crate for path/process/network/env/lock/OS facts
 - `crates/sidecar/`: sidecar namespace, layout, ready/inspect, and 4-field stamp primitive crate
+- `.github/workflows/guard.yml`: required guard workflow
 - `../../AGENTS.md`: repo-root workspace boundary across all attached repos
 
 ## Update Rules
