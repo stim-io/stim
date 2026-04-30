@@ -4,9 +4,15 @@ import { computed, onMounted, ref } from "vue";
 
 import MessagesPane from "./components/im/MessagesPane.vue";
 import SessionDrawer from "./components/im/SessionDrawer.vue";
+import {
+  createChatMessage,
+  initialLiveMessages,
+  previewForContent,
+  staticSessions,
+  textContent,
+} from "./components/im/sessionModel";
 import type { ChatMessage, SessionSummary } from "./components/im/types";
 import {
-  type MessageContent,
   sendFirstMessage,
   type FirstMessageResponse,
 } from "./controller/client";
@@ -21,17 +27,7 @@ const targetEndpointId = ref("endpoint-b");
 const controllerSnapshot = ref<ControllerRuntimeSnapshot | null>(null);
 const sendResult = ref<FirstMessageResponse | null>(null);
 const activeConversationId = ref<string | null>(null);
-const liveMessages = ref<ChatMessage[]>([
-  createChatMessage(
-    "seed-assistant",
-    "assistant",
-    "stim",
-    "Ready",
-    textContent(
-      "Session drawer and messages area are now the first desktop slice. Start with a text roundtrip here.",
-    ),
-  ),
-]);
+const liveMessages = ref<ChatMessage[]>(initialLiveMessages());
 const activeSessionId = ref("live-controller");
 const isSessionDrawerCollapsed = ref(false);
 const sessionQuery = ref("");
@@ -39,58 +35,6 @@ const activeSessionScope = ref<"all" | "live" | "unread">("all");
 const errorMessage = ref<string | null>(null);
 const isLoading = ref(false);
 const optimisticMessageId = ref<string | null>(null);
-
-const staticSessions: SessionSummary[] = [
-  {
-    id: "design-sync",
-    title: "Design sync",
-    preview: "Session shell spacing feels close to target.",
-    activityLabel: "08:42",
-    unreadCount: 2,
-    participantLabel: "DS",
-    live: false,
-    messages: [
-      createChatMessage(
-        "design-1",
-        "assistant",
-        "Nora",
-        "08:39",
-        textContent(
-          "The desktop drawer density is getting closer to the Feishu reference.",
-        ),
-      ),
-      createChatMessage(
-        "design-2",
-        "user",
-        "You",
-        "08:42",
-        textContent(
-          "Good, next we should tighten the message row spacing and unread emphasis.",
-        ),
-      ),
-    ],
-  },
-  {
-    id: "qa-handoff",
-    title: "QA handoff",
-    preview: "Mock sessions remain read-only for now.",
-    activityLabel: "Yesterday",
-    unreadCount: 0,
-    participantLabel: "QA",
-    live: false,
-    messages: [
-      createChatMessage(
-        "qa-1",
-        "assistant",
-        "QA",
-        "Yesterday",
-        textContent(
-          "Once the live controller thread is stable, we can route acceptance around it.",
-        ),
-      ),
-    ],
-  },
-];
 
 const controllerStatus = computed(
   () => controllerSnapshot.value?.state ?? "unavailable",
@@ -260,54 +204,6 @@ function handleNewConversation() {
   errorMessage.value = null;
   optimisticMessageId.value = null;
   draftText.value = "";
-}
-
-function createChatMessage(
-  id: string,
-  role: ChatMessage["role"],
-  author: string,
-  sentAtLabel: string,
-  content: MessageContent,
-  options?: {
-    deliveryState?: ChatMessage["deliveryState"];
-    metaLabel?: string | null;
-  },
-): ChatMessage {
-  return {
-    id,
-    role,
-    author,
-    sentAtLabel,
-    content,
-    deliveryState: options?.deliveryState,
-    metaLabel: options?.metaLabel ?? null,
-  };
-}
-
-function textContent(text: string): MessageContent {
-  return {
-    parts: [{ kind: "text", text }],
-    layout_hint: null,
-  };
-}
-
-function previewForContent(content: MessageContent): string {
-  const preview = content.parts
-    .map((part) => {
-      if (part.kind === "text") {
-        return part.text;
-      }
-
-      if (part.kind === "raw_html") {
-        return "[html]";
-      }
-
-      return "[fragment]";
-    })
-    .join(" ")
-    .trim();
-
-  return preview || "No message preview";
 }
 </script>
 
