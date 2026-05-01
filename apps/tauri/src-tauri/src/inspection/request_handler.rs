@@ -17,6 +17,7 @@ use stim_shared::{
 
 use crate::controller_runtime;
 use crate::inspection::inspect::inspect_main_window;
+use crate::inspection::renderer_action::poll_renderer_action_requests;
 use crate::inspection::renderer_probe::poll_renderer_probe_requests;
 use crate::inspection::screenshot::capture_main_window_screenshot;
 
@@ -32,6 +33,10 @@ pub fn start_inspection_bridge<R: Runtime>(app: AppHandle<R>) {
 
         if let Err(error) = poll_renderer_probe_requests(&app) {
             eprintln!("[stim-tauri][inspection] renderer probe bridge poll failed: {error}");
+        }
+
+        if let Err(error) = poll_renderer_action_requests(&app) {
+            eprintln!("[stim-tauri][inspection] renderer action bridge poll failed: {error}");
         }
 
         if let Err(error) = poll_controller_runtime_requests(&app) {

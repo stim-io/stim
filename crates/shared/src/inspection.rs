@@ -4,6 +4,8 @@ use crate::control_plane::{ControllerRuntimeHeartbeat, ControllerRuntimeSnapshot
 
 pub const RENDERER_PROBE_REQUEST_EVENT: &str = "stim://inspection/renderer-probe-request";
 pub const RENDERER_PROBE_RESPONSE_EVENT: &str = "stim://inspection/renderer-probe-response";
+pub const RENDERER_ACTION_REQUEST_EVENT: &str = "stim://inspection/renderer-action-request";
+pub const RENDERER_ACTION_RESPONSE_EVENT: &str = "stim://inspection/renderer-action-response";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InspectBridgeRequest {
@@ -64,10 +66,34 @@ pub struct RendererProbeBridgeResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RendererActionBridgeRequest {
+    pub request_id: String,
+    pub requested_at: String,
+    pub action: RendererActionRequest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RendererActionBridgeResponse {
+    pub request_id: String,
+    pub requested_at: String,
+    pub responded_at: String,
+    pub result: RendererActionResult,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "probe", rename_all = "kebab-case")]
 pub enum RendererProbeRequest {
     LandingBasics,
     MessagingState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "action", rename_all = "kebab-case")]
+pub enum RendererActionRequest {
+    MessagingSend {
+        text: String,
+        target_endpoint_id: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,11 +104,31 @@ pub enum RendererProbeResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum RendererActionResult {
+    Success {
+        snapshot: RendererActionSnapshot,
+    },
+    Failure {
+        reason: RendererActionFailureReason,
+        detail: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum RendererProbeFailureReason {
     NoMainWindow,
     ProbeFailed,
     ProbeTimedOut,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RendererActionFailureReason {
+    NoMainWindow,
+    ActionFailed,
+    ActionTimedOut,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,6 +142,12 @@ pub struct RendererProbeSnapshot {
 pub enum RendererProbeSnapshotKind {
     LandingBasics(RendererLandingBasicsSnapshot),
     MessagingState(RendererMessagingStateSnapshot),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "action", rename_all = "kebab-case")]
+pub enum RendererActionSnapshot {
+    MessagingSend(RendererMessagingSendSnapshot),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,6 +183,14 @@ pub struct RendererMessagingStateSnapshot {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RendererMessagingSendSnapshot {
+    pub submitted_text: String,
+    pub target_endpoint_id: String,
+    pub before: RendererMessagingStateSnapshot,
+    pub after: RendererMessagingStateSnapshot,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RendererProbeEventRequest {
     pub request_id: String,
     pub requested_at: String,
@@ -142,6 +202,20 @@ pub struct RendererProbeEventResponse {
     pub request_id: String,
     pub requested_at: String,
     pub result: RendererProbeResult,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RendererActionEventRequest {
+    pub request_id: String,
+    pub requested_at: String,
+    pub action: RendererActionRequest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RendererActionEventResponse {
+    pub request_id: String,
+    pub requested_at: String,
+    pub result: RendererActionResult,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

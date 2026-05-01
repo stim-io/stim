@@ -25,6 +25,7 @@ impl ControllerServiceHandle {
 pub struct ControllerHttpState {
     pub(crate) snapshot: Arc<Mutex<ControllerRuntimeSnapshot>>,
     pub(crate) stim_server_base_url: String,
+    pub(crate) santi_base_url: String,
     pub(crate) registered_endpoint_ids: Arc<Mutex<Vec<String>>>,
     pub(crate) self_discovery: DiscoveryRecord,
 }
@@ -60,6 +61,23 @@ pub struct FirstMessageResponse {
 pub struct MessageContentResponse {
     pub parts: Vec<MessagePartResponse>,
     pub layout_hint: Option<LayoutHintResponse>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ConversationTranscriptResponse {
+    pub conversation_id: String,
+    pub messages: Vec<ConversationMessageResponse>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ConversationMessageResponse {
+    pub id: String,
+    pub role: String,
+    pub author: String,
+    pub sent_at_label: String,
+    pub content: MessageContentResponse,
+    pub delivery_state: Option<String>,
+    pub meta_label: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -106,6 +124,22 @@ pub struct RegistrySnapshotResponse {
     pub endpoints: Vec<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct SantiSessionMessagesResponse {
+    pub(crate) messages: Vec<SantiSessionMessageResponse>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct SantiSessionMessageResponse {
+    pub(crate) id: String,
+    pub(crate) actor_type: String,
+    pub(crate) actor_id: String,
+    pub(crate) session_seq: i64,
+    pub(crate) content_text: String,
+    pub(crate) state: String,
+    pub(crate) created_at: String,
+}
+
 pub(crate) fn map_message_content(content: &MessageContent) -> MessageContentResponse {
     use stim_proto::{ContentPart, LayoutHint};
 
@@ -138,5 +172,47 @@ pub(crate) fn map_message_content(content: &MessageContent) -> MessageContentRes
             })
             .collect(),
         layout_hint: content.layout_hint.as_ref().map(map_layout_hint),
+    }
+}
+
+pub(crate) fn map_santi_transcript(
+    conversation_id: String,
+    messages: SantiSessionMessagesResponse,
+) -> ConversationTranscriptResponse {
+    ConversationTranscriptResponse {
+        conversation_id,
+        messages: messages
+            .messages
+            .into_iter()
+            .map(map_santi_message)
+            .collect(),
+    }
+}
+
+fn map_santi_message(message: SantiSessionMessageResponse) -> ConversationMessageResponse {
+    let role = match message.actor_type.as_str() {
+        "account" => "user",
+        "soul" => "assistant",
+        _ => "system",
+    };
+    let author = match role {
+        "user" => "You".to_string(),
+        "assistant" => "stim".to_string(),
+        _ => message.actor_id.clone(),
+    };
+
+    ConversationMessageResponse {
+        id: message.id,
+        role: role.to_string(),
+        author,
+        sent_at_label: format!("#{}", message.session_seq),
+        content: MessageContentResponse {
+            parts: vec![MessagePartResponse::Text {
+                text: message.content_text,
+            }],
+            layout_hint: None,
+        },
+        delivery_state: (role == "user").then(|| "sent".to_string()),
+        meta_label: Some(format!("{} · {}", message.state, message.created_at)),
     }
 }

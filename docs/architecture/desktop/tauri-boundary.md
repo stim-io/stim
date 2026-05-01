@@ -121,9 +121,11 @@ Negative examples:
 For sidecar-backed local services, apply this split strictly:
 
 - IPC/control-plane surfaces publish local sidecar truth such as discovery, current endpoint, readiness, and heartbeat
-- HTTP / SSE / WebSocket carry business requests, responses, and streaming semantics
+- HTTP / WebSocket carry business requests, responses, and streaming semantics
 
 Do not use IPC as a shortcut business API between the web app and a local sidecar service.
+
+Controller message-operation events follow this rule. The Tauri host may expose the current controller endpoint, but the renderer and `stim-dev` should use the controller WebSocket for message-operation commands and events. See `../../contracts/controller/message-operation-events.md`.
 
 ## Sidecar/runtime rule
 
@@ -163,6 +165,7 @@ Current implementation stance:
 - The controller sidecar emits a ready line with its live role, instance id, and HTTP endpoint.
 - Tauri keeps either an owned child handle or an attached endpoint and generates controller runtime responses from that live runtime relationship.
 - No runtime truth is stored in a state file.
+- Controller-owned message-operation events are controller service-plane events, not Tauri IPC events. Tauri owns discovery of the local controller relationship; the controller owns the operation event stream.
 
 For multi-sidecar development or runtime composition, IPC should stay namespaced and small:
 

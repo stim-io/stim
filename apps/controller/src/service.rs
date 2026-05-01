@@ -10,7 +10,8 @@ mod tests;
 
 pub use runtime::spawn_local_controller;
 pub use types::{
-    ControllerHttpState, ControllerServiceHandle, FirstMessageRequest, FirstMessageResponse,
-    LayoutHintResponse, LifecycleProofResponse, LifecycleTraceResponse, MessageContentResponse,
-    MessagePartResponse, RegistrySnapshotResponse,
+    ControllerHttpState, ControllerServiceHandle, ConversationMessageResponse,
+    ConversationTranscriptResponse, FirstMessageRequest, FirstMessageResponse, LayoutHintResponse,
+    LifecycleProofResponse, LifecycleTraceResponse, MessageContentResponse, MessagePartResponse,
+    RegistrySnapshotResponse,
 };

@@ -8,8 +8,10 @@ use super::{
     clock::timestamp_now,
     stim_server::{discover_endpoint_via_server, register_endpoint_via_server},
     types::{
-        map_message_content, ControllerHttpState, FirstMessageRequest, FirstMessageResponse,
+        map_message_content, map_santi_transcript, ControllerHttpState,
+        ConversationTranscriptResponse, FirstMessageRequest, FirstMessageResponse,
         LifecycleProofResponse, LifecycleTraceResponse, RegistrySnapshotResponse,
+        SantiSessionMessagesResponse,
     },
 };
 
@@ -22,6 +24,10 @@ pub(crate) fn build_router(app_state: ControllerHttpState) -> Router {
         )
         .route("/api/v1/debug/registry", get(registry_snapshot))
         .route("/api/v1/messages/roundtrip", post(first_message_roundtrip))
+        .route(
+            "/api/v1/conversations/{conversation_id}/messages",
+            get(conversation_messages),
+        )
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -29,6 +35,27 @@ pub(crate) fn build_router(app_state: ControllerHttpState) -> Router {
                 .allow_methods(Any),
         )
         .with_state(app_state)
+}
+
+async fn conversation_messages(
+    State(state): State<ControllerHttpState>,
+    axum::extract::Path(conversation_id): axum::extract::Path<String>,
+) -> Result<Json<ConversationTranscriptResponse>, (StatusCode, String)> {
+    let santi_base_url = state.santi_base_url.clone();
+    let conversation_id_for_fetch = conversation_id.clone();
+    let messages = tokio::task::spawn_blocking(move || {
+        fetch_santi_conversation_messages(&santi_base_url, &conversation_id_for_fetch)
+    })
+    .await
+    .map_err(|error| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("controller transcript fetch join failed: {error}"),
+        )
+    })?
+    .map_err(|error| (StatusCode::BAD_GATEWAY, error))?;
+
+    Ok(Json(map_santi_transcript(conversation_id, messages)))
 }
 
 async fn health() -> Json<&'static str> {
@@ -185,4 +212,20 @@ async fn registry_snapshot(
     Ok(Json(RegistrySnapshotResponse {
         endpoints: registered.clone(),
     }))
+}
+
+fn fetch_santi_conversation_messages(
+    santi_base_url: &str,
+    conversation_id: &str,
+) -> Result<SantiSessionMessagesResponse, String> {
+    reqwest::blocking::Client::new()
+        .get(format!(
+            "{santi_base_url}/api/v1/sessions/{conversation_id}/messages"
+        ))
+        .send()
+        .map_err(|error| format!("santi transcript request failed: {error}"))?
+        .error_for_status()
+        .map_err(|error| format!("santi transcript status failed: {error}"))?
+        .json::<SantiSessionMessagesResponse>()
+        .map_err(|error| format!("santi transcript decode failed: {error}"))
 }

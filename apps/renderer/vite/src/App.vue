@@ -13,8 +13,10 @@ import {
 } from "./components/im/sessionModel";
 import type { ChatMessage, SessionSummary } from "./components/im/types";
 import {
+  fetchConversationTranscript,
   sendFirstMessage,
   type FirstMessageResponse,
+  type TranscriptMessage,
 } from "./controller/client";
 import {
   fetchControllerRuntimeSnapshot,
@@ -22,12 +24,17 @@ import {
   type ControllerRuntimeSnapshot,
 } from "./controller/runtime";
 
+const activeConversationStorageKey = "stim.activeConversationId";
+const storedConversationId = readStoredConversationId();
+
 const draftText = ref("");
 const targetEndpointId = ref("endpoint-b");
 const controllerSnapshot = ref<ControllerRuntimeSnapshot | null>(null);
 const sendResult = ref<FirstMessageResponse | null>(null);
-const activeConversationId = ref<string | null>(null);
-const liveMessages = ref<ChatMessage[]>(initialLiveMessages());
+const activeConversationId = ref<string | null>(storedConversationId);
+const liveMessages = ref<ChatMessage[]>(
+  storedConversationId ? [] : initialLiveMessages(),
+);
 const activeSessionId = ref("live-controller");
 const isSessionDrawerCollapsed = ref(false);
 const sessionQuery = ref("");
@@ -112,6 +119,14 @@ onMounted(async () => {
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : String(error);
   }
+
+  if (activeConversationId.value) {
+    try {
+      await reloadConversation(activeConversationId.value);
+    } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : String(error);
+    }
+  }
 });
 
 async function handleSend() {
@@ -121,6 +136,7 @@ async function handleSend() {
 
   errorMessage.value = null;
   isLoading.value = true;
+  let roundtripCompleted = false;
 
   try {
     controllerSnapshot.value = await fetchControllerRuntimeSnapshot();
@@ -147,38 +163,15 @@ async function handleSend() {
       activeConversationId.value,
     );
     const sendResultValue = sendResult.value;
+    roundtripCompleted = true;
     activeConversationId.value = sendResultValue.conversation_id;
-    liveMessages.value = liveMessages.value.map((message) =>
-      message.id === pendingId
-        ? createChatMessage(
-            `${sendResultValue.message_id}-user`,
-            "user",
-            "You",
-            "Now",
-            sendResultValue.final_sent_content,
-            {
-              deliveryState: "sent",
-              metaLabel: "Delivered to controller",
-            },
-          )
-        : message,
-    );
-    liveMessages.value.push(
-      createChatMessage(
-        `${sendResultValue.message_id}-assistant`,
-        "assistant",
-        "stim",
-        "Now",
-        sendResultValue.response_content,
-        {
-          metaLabel: "Controller reply",
-        },
-      ),
-    );
+    storeConversationId(sendResultValue.conversation_id);
+    applyRoundtripFallback(sendResultValue, pendingId);
     optimisticMessageId.value = null;
+    await reloadConversation(sendResultValue.conversation_id);
     controllerSnapshot.value = await fetchControllerRuntimeSnapshot();
   } catch (error) {
-    if (optimisticMessageId.value) {
+    if (optimisticMessageId.value && !roundtripCompleted) {
       liveMessages.value = liveMessages.value.map((message) =>
         message.id === optimisticMessageId.value
           ? {
@@ -199,11 +192,87 @@ async function handleSend() {
 function handleNewConversation() {
   activeSessionId.value = "live-controller";
   activeConversationId.value = null;
+  clearStoredConversationId();
   liveMessages.value = [];
   sendResult.value = null;
   errorMessage.value = null;
   optimisticMessageId.value = null;
   draftText.value = "";
+}
+
+async function reloadConversation(conversationId: string) {
+  const transcript = await fetchConversationTranscript(conversationId);
+  activeConversationId.value = transcript.conversation_id;
+  storeConversationId(transcript.conversation_id);
+  liveMessages.value = transcript.messages.map(mapTranscriptMessage);
+}
+
+function applyRoundtripFallback(response: FirstMessageResponse, pendingId: string) {
+  liveMessages.value = liveMessages.value.map((message) =>
+    message.id === pendingId
+      ? createChatMessage(
+          `${response.message_id}-user`,
+          "user",
+          "You",
+          "Now",
+          response.final_sent_content,
+          {
+            deliveryState: "sent",
+            metaLabel: "Delivered to controller",
+          },
+        )
+      : message,
+  );
+  liveMessages.value.push(
+    createChatMessage(
+      `${response.message_id}-assistant`,
+      "assistant",
+      "stim",
+      "Now",
+      response.response_content,
+      {
+        metaLabel: "Controller reply",
+      },
+    ),
+  );
+}
+
+function mapTranscriptMessage(message: TranscriptMessage): ChatMessage {
+  return createChatMessage(
+    message.id,
+    message.role,
+    message.author,
+    message.sent_at_label,
+    message.content,
+    {
+      deliveryState: message.delivery_state ?? undefined,
+      metaLabel: message.meta_label,
+    },
+  );
+}
+
+function readStoredConversationId() {
+  try {
+    return window.localStorage.getItem(activeConversationStorageKey);
+  } catch {
+    return null;
+  }
+}
+
+function storeConversationId(conversationId: string) {
+  try {
+    window.localStorage.setItem(activeConversationStorageKey, conversationId);
+  } catch {
+    // Local storage is a convenience for reload continuity, not runtime truth.
+  }
+}
+
+function clearStoredConversationId() {
+  try {
+    window.localStorage.removeItem(activeConversationStorageKey);
+  } catch {
+    // Local storage is a convenience for reload continuity, not runtime truth.
+  }
 }
 </script>
 

@@ -3,13 +3,17 @@ use std::{env, process::exit};
 mod bridge;
 mod cli;
 mod clock;
+mod detect;
 mod dev_loop;
 mod runtime_control;
 mod sidecars;
+mod smoke;
 
 use cli::{help_text, parse_command_line, parse_start_options, print_help, reject_extra_args};
+use detect::detect;
 use dev_loop::{restart, start, ExistingInstancePolicy};
 use runtime_control::{inspect, list, reset, status, stop};
+use smoke::smoke;
 use stim_sidecar::identity::SIDECAR_NAMESPACE_ENV;
 
 fn main() {
@@ -32,6 +36,11 @@ fn run() -> Result<(), String> {
         }
         "start" => start(parse_start_options(args)?, ExistingInstancePolicy::Reject),
         "restart" => restart(parse_start_options(args)?),
+        "detect" => {
+            reject_extra_args(args, "detect")?;
+            detect()
+        }
+        "smoke" => smoke(args),
         "status" => {
             reject_extra_args(args, "status")?;
             status()

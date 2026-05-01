@@ -113,6 +113,22 @@ pub fn renderer_probe_bridge_response_path(request_id: &str) -> PathBuf {
     renderer_probe_bridge_responses_dir().join(format!("{request_id}.json"))
 }
 
+pub fn renderer_action_bridge_requests_dir() -> PathBuf {
+    bridges_root().join("renderer-action/requests")
+}
+
+pub fn renderer_action_bridge_responses_dir() -> PathBuf {
+    bridges_root().join("renderer-action/responses")
+}
+
+pub fn renderer_action_bridge_request_path(request_id: &str) -> PathBuf {
+    renderer_action_bridge_requests_dir().join(format!("{request_id}.json"))
+}
+
+pub fn renderer_action_bridge_response_path(request_id: &str) -> PathBuf {
+    renderer_action_bridge_responses_dir().join(format!("{request_id}.json"))
+}
+
 pub fn controller_runtime_bridge_requests_dir() -> PathBuf {
     bridges_root().join("controller-runtime/requests")
 }
