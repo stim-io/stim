@@ -12,6 +12,8 @@ pub fn run() {
         .setup(|app| {
             create_main_window(app)?;
             controller_runtime::start_controller_runtime(app);
+            inspection::renderer_action::manage_renderer_action_state(app);
+            inspection::renderer_action::register_renderer_action_listener(app.handle());
             inspection::renderer_probe::manage_renderer_probe_state(app);
             inspection::renderer_probe::register_renderer_probe_listener(app.handle());
             inspection::request_handler::start_inspection_bridge(app.handle().clone());

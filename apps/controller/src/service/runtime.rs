@@ -70,6 +70,7 @@ pub fn spawn_local_controller(namespace: Option<&str>) -> Result<ControllerServi
     let app_state = ControllerHttpState {
         snapshot: snapshot.clone(),
         stim_server_base_url: stim_server_base_url.clone(),
+        santi_base_url: santi_base_url.clone(),
         registered_endpoint_ids: registered_endpoint_ids.clone(),
         self_discovery: discovery_fixture.self_discovery.clone(),
     };

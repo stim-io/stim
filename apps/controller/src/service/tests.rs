@@ -99,6 +99,33 @@ fn spawn_test_santi_server() -> String {
                             error: None,
                         })
                     }),
+                )
+                .route(
+                    "/api/v1/sessions/{session_id}/messages",
+                    get(|| async move {
+                        Json(serde_json::json!({
+                            "messages": [
+                                {
+                                    "id": "msg-1",
+                                    "actor_type": "account",
+                                    "actor_id": "endpoint-a",
+                                    "session_seq": 1,
+                                    "content_text": "hello from persisted transcript",
+                                    "state": "fixed",
+                                    "created_at": "2026-04-30T00:00:00Z"
+                                },
+                                {
+                                    "id": "msg-2",
+                                    "actor_type": "soul",
+                                    "actor_id": "soul_default",
+                                    "session_seq": 2,
+                                    "content_text": "hello from mock santi",
+                                    "state": "fixed",
+                                    "created_at": "2026-04-30T00:00:01Z"
+                                }
+                            ]
+                        }))
+                    }),
                 );
 
             axum::serve(listener, app).await.unwrap();
@@ -149,6 +176,46 @@ fn spawned_controller_serves_first_message_roundtrip_over_http() {
     assert!(snapshot_detail.contains("stim-server env-override via STIM_SERVER_BASE_URL ->"));
     assert!(snapshot_detail.contains("target santi env-override via SANTI_BASE_URL ->"));
     assert!(snapshot_detail.contains("last roundtrip ok for endpoint endpoint-b envelope"));
+    unsafe { std::env::remove_var("STIM_SERVER_BASE_URL") };
+    unsafe { std::env::remove_var("SANTI_BASE_URL") };
+}
+
+#[test]
+fn spawned_controller_serves_conversation_transcript_over_http() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let stim_server_base_url = spawn_test_stim_server();
+    let santi_base_url = spawn_test_santi_server();
+    unsafe { std::env::set_var("STIM_SERVER_BASE_URL", &stim_server_base_url) };
+    unsafe { std::env::set_var("SANTI_BASE_URL", &santi_base_url) };
+    let handle = spawn_local_controller(Some("test-transcript")).unwrap();
+    let snapshot = handle.snapshot();
+    let address = snapshot
+        .http_base_url
+        .unwrap()
+        .trim_start_matches("http://")
+        .to_string();
+
+    let mut response = String::new();
+
+    for _ in 0..20 {
+        match TcpStream::connect(&address) {
+            Ok(mut stream) => {
+                let request = format!(
+                    "GET /api/v1/conversations/conv-1/messages HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\n\r\n"
+                );
+                stream.write_all(request.as_bytes()).unwrap();
+                stream.read_to_string(&mut response).unwrap();
+                break;
+            }
+            Err(_) => thread::sleep(Duration::from_millis(50)),
+        }
+    }
+
+    assert!(response.contains("200 OK"));
+    assert!(response.contains("hello from persisted transcript"));
+    assert!(response.contains("hello from mock santi"));
+    assert!(response.contains("\"role\":\"user\""));
+    assert!(response.contains("\"role\":\"assistant\""));
     unsafe { std::env::remove_var("STIM_SERVER_BASE_URL") };
     unsafe { std::env::remove_var("SANTI_BASE_URL") };
 }

@@ -24,6 +24,8 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Do not persist runtime truth in state files such as `state.json`, `runtime.json`, or `heartbeat.json`; live inspect/probe/health surfaces are the source of current runtime truth, while stamps define cleanup ownership and locks define startup exclusion only.
 - Keep inspection focused on stable boundary truth (attachment target, visible state, error presence, message growth, visible content shape). Do not treat open-ended agent chat semantics as fully scriptable until those semantics have matured into a genuinely stable contract.
 - Prefer `stim-dev` as the canonical local dev-loop, recovery, status, and inspection entrypoint. If local iteration needs new restart or recovery behavior, add it there instead of relying on ad hoc process choreography.
+- `apps/controller/` may own a local message-operation event layer for controller/runtime coverage, debugging, and acceptance through `stim-dev`. That layer is independent from `stim-server` product-ledger events and must not become the durable product IM ledger.
+- Controller operation events may correlate to product-ledger facts and `santi` runtime facts, but they should not erase those layers or pretend to be their source of truth.
 - Real product/business communication should converge on explicit HTTP / SSE / WebSocket contracts exposed by owned services.
 - Dev/prod differences belong in bootstrap, config, and provider/resource selection, not in the core identity of product features or control-plane contracts.
 - Prefer a small number of stable client primitives over premature abstraction or framework layering.
@@ -45,6 +47,8 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Format workspace: `pnpm exec prettier --write .`
 - Check formatting: `pnpm exec prettier --check .`
 - Run repo guard: `pnpm run guard`
+- Detect standalone prerequisites and next-step hints: `stim-dev detect`
+- Smoke renderer-visible messaging send path: `stim-dev smoke renderer messaging [text]`
 - Start full local app loop: `stim-dev start`
 - Start controller-focused loop: `stim-dev start controller`
 - Start renderer-focused loop: `stim-dev start renderer`
@@ -89,6 +93,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - `docs/architecture/structure.md`: durable directory ownership and structure rules for app, service, and Tauri host code
 - `docs/architecture/desktop/tauri-boundary.md`: boundary between the Tauri host, web app, and local runtime/service processes
 - `docs/contracts/host/inspection.md`: host status and inspection boundary for `stim-dev`
+- `docs/contracts/controller/message-operation-events.md`: controller-owned message-operation event contract for local app-loop coverage and acceptance
 - `apps/packaged/`: thin packaged/runtime launcher entry and packaged sidecar assembly plan
 - `apps/renderer/`: renderer delivery sidecar wrapper plus Vite app under `apps/renderer/vite/`
 - `crates/platform/`: platform primitive crate for path/process/network/env/lock/OS facts

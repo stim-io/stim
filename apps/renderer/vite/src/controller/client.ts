@@ -66,6 +66,21 @@ export type FirstMessageResponse = {
   lifecycle_proof: LifecycleProof;
 };
 
+export type TranscriptMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  author: string;
+  sent_at_label: string;
+  content: MessageContent;
+  delivery_state: "sent" | "sending" | "failed" | null;
+  meta_label: string | null;
+};
+
+export type ConversationTranscriptResponse = {
+  conversation_id: string;
+  messages: TranscriptMessage[];
+};
+
 export async function sendFirstMessage(
   text: string,
   targetEndpointId: string,
@@ -97,4 +112,24 @@ export async function sendFirstMessage(
   }
 
   return response.json() as Promise<FirstMessageResponse>;
+}
+
+export async function fetchConversationTranscript(conversationId: string) {
+  const snapshot = await fetchControllerRuntimeSnapshot();
+
+  if (!snapshot.http_base_url) {
+    throw new Error("Controller HTTP base URL unavailable");
+  }
+
+  const response = await fetch(
+    `${snapshot.http_base_url}/api/v1/conversations/${encodeURIComponent(
+      conversationId,
+    )}/messages`,
+  );
+
+  if (!response.ok) {
+    throw new Error(`Controller transcript fetch failed: ${response.status}`);
+  }
+
+  return response.json() as Promise<ConversationTranscriptResponse>;
 }

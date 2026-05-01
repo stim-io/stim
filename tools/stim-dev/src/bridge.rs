@@ -4,13 +4,15 @@ use serde::{de::DeserializeOwned, Serialize};
 use stim_shared::{
     inspection::{
         ControllerRuntimeBridgeRequest, ControllerRuntimeBridgeResponse, InspectBridgeRequest,
-        InspectBridgeResponse, InspectResult, RendererProbeBridgeRequest,
-        RendererProbeBridgeResponse, RendererProbeRequest, RendererProbeResult,
-        ScreenshotBridgeRequest, ScreenshotBridgeResponse, ScreenshotResult,
+        InspectBridgeResponse, InspectResult, RendererActionBridgeRequest,
+        RendererActionBridgeResponse, RendererActionRequest, RendererActionResult,
+        RendererProbeBridgeRequest, RendererProbeBridgeResponse, RendererProbeRequest,
+        RendererProbeResult, ScreenshotBridgeRequest, ScreenshotBridgeResponse, ScreenshotResult,
     },
     paths::{
         controller_runtime_bridge_request_path, controller_runtime_bridge_response_path,
         inspect_bridge_request_path, inspect_bridge_response_path,
+        renderer_action_bridge_request_path, renderer_action_bridge_response_path,
         renderer_probe_bridge_request_path, renderer_probe_bridge_response_path,
         screenshot_bridge_request_path, screenshot_bridge_response_path,
     },
@@ -34,6 +36,16 @@ impl BridgeResponseEnvelope for ScreenshotBridgeResponse {
 }
 
 impl BridgeResponseEnvelope for RendererProbeBridgeResponse {
+    fn request_id(&self) -> &str {
+        &self.request_id
+    }
+
+    fn requested_at(&self) -> &str {
+        &self.requested_at
+    }
+}
+
+impl BridgeResponseEnvelope for RendererActionBridgeResponse {
     fn request_id(&self) -> &str {
         &self.request_id
     }
@@ -108,6 +120,31 @@ pub(crate) fn request_probe(probe: RendererProbeRequest) -> Result<RendererProbe
     Ok(response.result)
 }
 
+pub(crate) fn request_renderer_action(
+    action: RendererActionRequest,
+) -> Result<RendererActionResult, String> {
+    let request_id = create_request_id();
+    let requested_at = timestamp_now();
+    let timeout = renderer_action_timeout(&action);
+    let request = RendererActionBridgeRequest {
+        request_id: request_id.clone(),
+        requested_at: requested_at.clone(),
+        action,
+    };
+
+    let response = request_bridge_response::<_, RendererActionBridgeResponse>(BridgeExchange {
+        label: "renderer action",
+        request_path: renderer_action_bridge_request_path(&request_id),
+        response_path: renderer_action_bridge_response_path(&request_id),
+        request: &request,
+        request_id: &request_id,
+        requested_at: &requested_at,
+        timeout,
+    })?;
+
+    Ok(response.result)
+}
+
 pub(crate) fn request_inspect() -> Result<InspectResult, String> {
     request_inspect_with_timeout(Duration::from_secs(15))
 }
@@ -158,6 +195,12 @@ fn renderer_probe_timeout(probe: &RendererProbeRequest) -> Duration {
     match probe {
         RendererProbeRequest::LandingBasics => Duration::from_secs(10),
         RendererProbeRequest::MessagingState => Duration::from_secs(10),
+    }
+}
+
+fn renderer_action_timeout(action: &RendererActionRequest) -> Duration {
+    match action {
+        RendererActionRequest::MessagingSend { .. } => Duration::from_secs(70),
     }
 }
 
@@ -230,9 +273,9 @@ fn cleanup_exchange(request_path: &std::path::Path, response_path: &std::path::P
 
 #[cfg(test)]
 mod tests {
-    use super::renderer_probe_timeout;
+    use super::{renderer_action_timeout, renderer_probe_timeout};
     use std::time::Duration;
-    use stim_shared::inspection::RendererProbeRequest;
+    use stim_shared::inspection::{RendererActionRequest, RendererProbeRequest};
 
     #[test]
     fn renderer_inspect_probes_have_short_timeout_budgets() {
@@ -243,6 +286,17 @@ mod tests {
         assert_eq!(
             renderer_probe_timeout(&RendererProbeRequest::MessagingState),
             Duration::from_secs(10)
+        );
+    }
+
+    #[test]
+    fn renderer_actions_have_bounded_smoke_timeout() {
+        assert_eq!(
+            renderer_action_timeout(&RendererActionRequest::MessagingSend {
+                text: "hello".into(),
+                target_endpoint_id: None,
+            }),
+            Duration::from_secs(70)
         );
     }
 }

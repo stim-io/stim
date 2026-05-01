@@ -30,6 +30,7 @@ Use this file first when you are deciding:
 Then read more specific docs only if the question narrows to:
 
 - desktop host/control-plane ownership → `architecture/desktop/tauri-boundary.md`
+- controller message-operation event contract → `contracts/controller/message-operation-events.md`
 - host inspection/probe/operator contract → `contracts/host/inspection.md`
 
 ## Top-level stance
@@ -270,12 +271,14 @@ That includes:
 
 - local runtime/control entrypoints
 - controller-facing orchestration and health/probe surfaces
+- controller-owned message-operation events for local coverage, debugging, and acceptance
 - runtime/process concerns that do not belong in the UI or desktop shell
 
 It should not become:
 
 - renderer UI code
 - Tauri host bootstrap code
+- the durable product IM message ledger owned by `stim-server`
 - a dumping ground for unrelated dev-only glue
 
 ## `crates/` and `tools/` rule
