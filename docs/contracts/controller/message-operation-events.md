@@ -30,6 +30,10 @@ This layer is for local app-loop coverage and acceptance. It is not the durable 
 
 Use a controller WebSocket for command and event flow.
 
+The current local controller route is:
+
+- `GET /api/v1/controller/operations/ws`
+
 The WebSocket is a controller service contract, not a host-control shortcut. Tauri may help the renderer discover the controller endpoint, then the renderer talks to the controller over the explicit service transport.
 
 Do not mirror this business path through Tauri commands, plugin events, or filesystem bridges for convenience.
@@ -62,6 +66,11 @@ Good command examples:
 - send a text message
 - request a transcript/projection snapshot
 
+The current minimal command set is:
+
+- `send-text`: send a text operation to a target endpoint, optionally continuing a named conversation
+- `load-transcript`: load a controller transcript snapshot for a named conversation
+
 Poor command examples:
 
 - click the send button
@@ -73,6 +82,10 @@ UI actions may produce controller commands, but the controller contract should d
 ## Acceptance rule
 
 `stim-dev` acceptance should use controller events and controller snapshots as the primary machine-gated path.
+
+The current local acceptance command is:
+
+- `stim-dev accept controller messaging [text]`
 
 Renderer smoke should validate UI projection only:
 

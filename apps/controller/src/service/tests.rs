@@ -14,6 +14,12 @@ use stim_proto::{
 use stim_server::{
     app::build_router as build_stim_server_router, state::AppState as StimServerState,
 };
+use stim_shared::message_operation::{
+    ControllerOperationCommand, ControllerOperationCommandEnvelope, ControllerOperationEvent,
+    ControllerOperationStage, ControllerOperationStatus,
+    CONTROLLER_MESSAGE_OPERATION_SCHEMA_VERSION,
+};
+use tungstenite::Message as WebSocketMessage;
 
 use super::spawn_local_controller;
 
@@ -218,6 +224,96 @@ fn spawned_controller_serves_conversation_transcript_over_http() {
     assert!(response.contains("\"role\":\"assistant\""));
     unsafe { std::env::remove_var("STIM_SERVER_BASE_URL") };
     unsafe { std::env::remove_var("SANTI_BASE_URL") };
+}
+
+#[test]
+fn spawned_controller_serves_message_operation_events_over_websocket() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let stim_server_base_url = spawn_test_stim_server();
+    let santi_base_url = spawn_test_santi_server();
+    unsafe { std::env::set_var("STIM_SERVER_BASE_URL", &stim_server_base_url) };
+    unsafe { std::env::set_var("SANTI_BASE_URL", &santi_base_url) };
+    let handle = spawn_local_controller(Some("test-ws")).unwrap();
+    let snapshot = handle.snapshot();
+    let http_base_url = snapshot.http_base_url.unwrap();
+    let ws_url = format!(
+        "{}/api/v1/controller/operations/ws",
+        http_base_url.replacen("http://", "ws://", 1)
+    );
+
+    let mut socket = connect_websocket_with_retry(&ws_url);
+    let command = ControllerOperationCommandEnvelope {
+        schema_version: CONTROLLER_MESSAGE_OPERATION_SCHEMA_VERSION,
+        operation_id: "op-ws-1".into(),
+        correlation_id: "corr-ws-1".into(),
+        command: ControllerOperationCommand::SendText {
+            text: "hello over websocket".into(),
+            target_endpoint_id: "endpoint-b".into(),
+            conversation_id: None,
+        },
+    };
+    socket
+        .send(WebSocketMessage::Text(
+            serde_json::to_string(&command).unwrap().into(),
+        ))
+        .unwrap();
+
+    let events = read_operation_events(&mut socket);
+    let terminal = events.last().unwrap();
+    let snapshot = terminal.snapshot.as_ref().unwrap();
+
+    assert!(events
+        .iter()
+        .any(|event| event.stage == ControllerOperationStage::CommandAccepted));
+    assert!(events
+        .iter()
+        .any(|event| event.stage == ControllerOperationStage::DeliveryStarted));
+    assert_eq!(terminal.stage, ControllerOperationStage::OperationCompleted);
+    assert_eq!(terminal.status, ControllerOperationStatus::Completed);
+    assert_eq!(
+        snapshot.final_sent_text.as_deref(),
+        Some("hello over websocket")
+    );
+    assert_eq!(
+        snapshot.response_text_source.as_deref(),
+        Some("stim_reply_handle")
+    );
+    assert_eq!(snapshot.user_message_count, 1);
+    assert_eq!(snapshot.assistant_message_count, 1);
+    unsafe { std::env::remove_var("STIM_SERVER_BASE_URL") };
+    unsafe { std::env::remove_var("SANTI_BASE_URL") };
+}
+
+fn connect_websocket_with_retry(
+    ws_url: &str,
+) -> tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>> {
+    for _ in 0..20 {
+        match tungstenite::connect(ws_url) {
+            Ok((socket, _)) => return socket,
+            Err(_) => thread::sleep(Duration::from_millis(50)),
+        }
+    }
+
+    panic!("failed to connect controller websocket at {ws_url}");
+}
+
+fn read_operation_events(
+    socket: &mut tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>,
+) -> Vec<ControllerOperationEvent> {
+    let mut events = Vec::new();
+
+    loop {
+        let message = socket.read().unwrap();
+        let WebSocketMessage::Text(text) = message else {
+            continue;
+        };
+        let event = serde_json::from_str::<ControllerOperationEvent>(&text).unwrap();
+        let terminal = event.is_terminal();
+        events.push(event);
+        if terminal {
+            return events;
+        }
+    }
 }
 
 #[test]

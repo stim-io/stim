@@ -1,5 +1,6 @@
 use std::{env, process::exit};
 
+mod acceptance;
 mod bridge;
 mod cli;
 mod clock;
@@ -9,6 +10,7 @@ mod runtime_control;
 mod sidecars;
 mod smoke;
 
+use acceptance::accept;
 use cli::{help_text, parse_command_line, parse_start_options, print_help, reject_extra_args};
 use detect::detect;
 use dev_loop::{restart, start, ExistingInstancePolicy};
@@ -40,6 +42,7 @@ fn run() -> Result<(), String> {
             reject_extra_args(args, "detect")?;
             detect()
         }
+        "accept" => accept(args),
         "smoke" => smoke(args),
         "status" => {
             reject_extra_args(args, "status")?;
