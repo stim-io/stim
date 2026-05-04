@@ -58,6 +58,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: stim/pnpm-lock.yaml
 
+      - name: Install stim-packages dependencies
+        working-directory: stim-packages
+        run: pnpm install --frozen-lockfile
+
+      - name: Build stim component package
+        working-directory: stim-packages
+        run: pnpm -C packages/components build
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
