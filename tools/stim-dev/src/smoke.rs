@@ -40,6 +40,7 @@ fn smoke_renderer_messaging(text: Option<String>) -> Result<(), String> {
         text: text.clone(),
         target_endpoint_id: Some("endpoint-b".into()),
     })?;
+    let passed = action_result_passed(&result);
 
     let output = serde_json::to_string_pretty(&serde_json::json!({
         "namespace": current_namespace(),
@@ -51,7 +52,15 @@ fn smoke_renderer_messaging(text: Option<String>) -> Result<(), String> {
     .map_err(|error| format!("failed to serialize renderer messaging smoke result: {error}"))?;
 
     println!("{output}");
+    if !passed {
+        return Err("renderer messaging smoke failed; see JSON output".into());
+    }
+
     Ok(())
+}
+
+fn action_result_passed(result: &RendererActionResult) -> bool {
+    matches!(result, RendererActionResult::Success { .. })
 }
 
 fn action_result_json(result: RendererActionResult) -> serde_json::Value {
@@ -80,7 +89,7 @@ mod tests {
     use serde_json::json;
     use stim_shared::inspection::{RendererActionFailureReason, RendererActionResult};
 
-    use super::{action_result_json, smoke};
+    use super::{action_result_json, action_result_passed, smoke};
 
     #[test]
     fn smoke_rejects_unknown_or_incomplete_leaves() {
@@ -95,10 +104,11 @@ mod tests {
 
     #[test]
     fn failed_renderer_action_reports_kebab_case_reason() {
-        let output = action_result_json(RendererActionResult::Failure {
+        let failure = RendererActionResult::Failure {
             reason: RendererActionFailureReason::ActionTimedOut,
             detail: Some("timed out".into()),
-        });
+        };
+        let output = action_result_json(failure.clone());
 
         assert_eq!(
             output,
@@ -108,5 +118,6 @@ mod tests {
                 "detail": "timed out",
             })
         );
+        assert!(!action_result_passed(&failure));
     }
 }

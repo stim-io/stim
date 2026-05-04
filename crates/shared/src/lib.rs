@@ -1,6 +1,7 @@
 pub mod control_plane;
 pub mod delivery;
 pub mod inspection;
+pub mod message_operation;
 pub mod paths;
 
 pub const RENDERER_DEV_HOST: &str = "127.0.0.1";

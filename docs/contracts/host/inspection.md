@@ -14,13 +14,15 @@ The canonical local operator surface is:
 - `stim-dev [--namespace <value>] list`
 - `stim-dev [--namespace <value>] stop`
 - `stim-dev [--namespace <value>] reset`
+- `stim-dev accept controller messaging [text]`
+- `stim-dev smoke renderer messaging [text]`
 - `stim-dev inspect <app> <subcommand>` where leaves are strictly enumerated:
   - `stim-dev inspect tauri host`
   - `stim-dev inspect tauri screenshot [label]`
   - `stim-dev inspect renderer landing`
   - `stim-dev inspect renderer messaging`
 
-These commands are for local lifecycle, recovery, status, and UI evidence collection. They are not a general-purpose product API, renderer automation surface, or scripted chat harness.
+Lifecycle, status, and `inspect` commands are for local recovery, status, and UI evidence collection. Controller acceptance belongs under `accept`; renderer projection smoke belongs under `smoke`. None of these commands is a general-purpose product API or arbitrary renderer automation surface.
 
 ## Command rules
 
@@ -113,29 +115,27 @@ Captures the host-visible main window and returns the artifact path.
 
 Although it writes an artifact, it belongs under `inspect` because it is UI-debug evidence collection across Tauri and renderer state.
 
-## Manual send-message verification
+## Message-operation acceptance and renderer smoke
 
-Sending a message is currently a manual UI operation, not a `stim-dev` command.
+`stim-dev accept controller messaging [text]` is the machine-gated controller acceptance path for the local message operation loop.
 
-Recommended verification sequence:
+It drives the controller service contract directly, not the renderer DOM:
 
-1. Run `stim-dev status`.
-2. Run `stim-dev inspect tauri host`.
-3. Run `stim-dev inspect renderer landing`.
-4. In the desktop UI, select the live controller session, enter the message, and click `Send message`.
-5. Run `stim-dev inspect renderer messaging`.
-6. Optionally run `stim-dev inspect tauri screenshot after-send`.
+1. start a clean controller runtime for the namespace
+2. send a text operation through the controller message-operation WebSocket
+3. assert the controller snapshot over the persisted transcript
+4. restart the controller runtime
+5. reload the same transcript through the controller WebSocket
+6. fail with a non-zero exit code if any structured failure or content assertion fails
 
-Operator judgment should check stable evidence only:
+`stim-dev smoke renderer messaging [text]` is a renderer projection smoke. It may use the declared renderer action bridge to drive the visible composer, but it should validate UI projection only:
 
-- controller/host are reachable
-- the live session is active
-- no visible error is present
-- user and assistant message counts increased as expected
-- a conversation id is visible when a live turn succeeds
-- assistant content shape remains on the expected rendered path
+- active conversation is visible
+- user and assistant entries are rendered
+- no visible error is reported
+- stable debug fields such as response source and final sent text remain readable
 
-Do not gate local verification on one exact open-ended model wording.
+Do not use renderer smoke as the primary source of truth for whether the controller operation succeeded. Do not gate local verification on one exact open-ended model wording.
 
 ## Non-goals
 
@@ -143,9 +143,9 @@ The contract intentionally does not expose:
 
 - arbitrary JavaScript evaluation
 - arbitrary CSS selector queries from the CLI
-- CLI-driven chat send/reset/turn automation
-- aggregate acceptance commands that combine sending, waiting, and semantic judgment
-- product/business workflow actions
+- hidden CLI-driven chat automation outside declared `accept` / `smoke` leaves
+- renderer-driven aggregate acceptance that replaces controller events and snapshots as the primary signal
+- product/business workflow actions outside explicit controller service contracts
 
 If a future web harness boundary becomes mature enough to expose declared app operations safely, add that as a new explicit contract. Do not grow hidden renderer automation inside `stim-dev`.
 

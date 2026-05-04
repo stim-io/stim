@@ -103,10 +103,7 @@ fn controller_runtime_caches_discovery_and_roundtrips_message() {
     assert!(summary.message_id.starts_with("msg-"));
     assert_eq!(summary.listen_address, santi_base_url);
     assert!(summary.envelope_id.starts_with("env-"));
-    assert_eq!(
-        summary.final_sent_text,
-        "hello controller (edited before fix)"
-    );
+    assert_eq!(summary.final_sent_text, "hello controller");
     assert_eq!(summary.final_message_version, 3);
     assert_eq!(summary.response_envelope_id, "reply-1");
     assert_eq!(summary.response_text, "real santi reply");
@@ -156,10 +153,7 @@ fn controller_runtime_uses_registry_records_for_selected_endpoint() {
 
     assert_eq!(summary.server_base_url, "http://127.0.0.1:43100");
     assert_eq!(summary.endpoint_id, "endpoint-b");
-    assert_eq!(
-        summary.final_sent_text,
-        "hello registry (edited before fix)"
-    );
+    assert_eq!(summary.final_sent_text, "hello registry");
     assert_eq!(summary.final_message_version, 3);
     assert_eq!(summary.response_text, "real santi reply");
     assert_eq!(summary.response_text_source, "stim_reply_handle");

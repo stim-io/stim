@@ -47,7 +47,7 @@ where
     ) -> Result<ControllerProofSummary, ControllerError> {
         let peer_discovery = self.server_facade.discover_endpoint(endpoint_id)?;
         let self_discovery = self.self_discovery.clone();
-        let revised_text = format!("{text} (edited before fix)");
+        let revised_text = text.to_string();
         let ids = sample_roundtrip_ids(conversation_id);
 
         let peer_listen_address = first_listen_address(&peer_discovery)?;

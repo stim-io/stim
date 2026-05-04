@@ -29,6 +29,23 @@ jobs:
           repository: stim-io/stim-packages
           path: stim-packages
 
+      - name: Checkout stim-proto
+        uses: actions/checkout@v6
+        with:
+          repository: stim-io/stim-proto
+          path: stim-proto
+
+      - name: Checkout stim-server
+        uses: actions/checkout@v6
+        with:
+          repository: stim-io/stim-server
+          path: stim-server
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v5
         with:

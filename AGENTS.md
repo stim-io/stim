@@ -13,6 +13,8 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 ## Core Constraints
 
 - `stim/` owns the product client/application layer, not the paired agent runtime or server-side business execution.
+- `stim/` work should start from real Agent-Native IM workflow slices that exercise the path through the app, controller/service boundaries, and `santi`; avoid isolated client wins that do not improve that loop.
+- Keep UI usable enough for daily workflow validation: reliable input, message display, reload/continuation, error visibility, and inspection. Defer visual polish unless it unlocks the core workflow.
 - Keep heavy communication, orchestration, and durable business logic behind server boundaries (`stim-server/` and `santi/`), not inside platform-specific client code.
 - Treat Tauri as the desktop host/runtime boundary, not as the main product-logic home.
 - Keep the web app, Tauri host, and local runtime-control surfaces separated by explicit boundaries rather than convenience-driven mixing.
@@ -24,6 +26,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Do not persist runtime truth in state files such as `state.json`, `runtime.json`, or `heartbeat.json`; live inspect/probe/health surfaces are the source of current runtime truth, while stamps define cleanup ownership and locks define startup exclusion only.
 - Keep inspection focused on stable boundary truth (attachment target, visible state, error presence, message growth, visible content shape). Do not treat open-ended agent chat semantics as fully scriptable until those semantics have matured into a genuinely stable contract.
 - Prefer `stim-dev` as the canonical local dev-loop, recovery, status, and inspection entrypoint. If local iteration needs new restart or recovery behavior, add it there instead of relying on ad hoc process choreography.
+- `stim-dev` acceptance, controller operation events, and deterministic/local checks are development accelerators; they must support, not replace, the real end-to-end `stim -> santi` product loop.
 - `apps/controller/` may own a local message-operation event layer for controller/runtime coverage, debugging, and acceptance through `stim-dev`. That layer is independent from `stim-server` product-ledger events and must not become the durable product IM ledger.
 - Controller operation events may correlate to product-ledger facts and `santi` runtime facts, but they should not erase those layers or pretend to be their source of truth.
 - Real product/business communication should converge on explicit HTTP / SSE / WebSocket contracts exposed by owned services.
@@ -46,8 +49,9 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Normal `stim-dev` usage should call the installed CLI directly; use `cargo run -p stim-dev -- ...` only as a local fallback while iterating on `stim-dev` itself or debugging a narrow command implementation.
 - Format workspace: `pnpm exec prettier --write .`
 - Check formatting: `pnpm exec prettier --check .`
-- Run repo guard: `pnpm run guard`
+- Run repo guard: `pnpm run guard` (Rust fmt/controller-tool tests plus client and renderer typechecks)
 - Detect standalone prerequisites and next-step hints: `stim-dev detect`
+- Run controller-owned machine acceptance for messaging: `stim-dev accept controller messaging [text]`
 - Smoke renderer-visible messaging send path: `stim-dev smoke renderer messaging [text]`
 - Start full local app loop: `stim-dev start`
 - Start controller-focused loop: `stim-dev start controller`

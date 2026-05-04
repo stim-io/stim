@@ -1,8 +1,10 @@
 mod clock;
+mod operations;
 mod routes;
 mod runtime;
 mod stim_server;
 mod targets;
+mod transcript;
 mod types;
 
 #[cfg(test)]

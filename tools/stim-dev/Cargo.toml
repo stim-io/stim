@@ -10,3 +10,4 @@ stim-sidecar.workspace = true
 stim-shared.workspace = true
 serde = "1"
 serde_json = "1"
+tungstenite = "0.29"
