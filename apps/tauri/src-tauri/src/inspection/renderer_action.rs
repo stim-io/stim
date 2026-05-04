@@ -130,7 +130,8 @@ fn request_renderer_action<R: Runtime>(
 
 fn renderer_action_timeout(action: &RendererActionRequest) -> Duration {
     match action {
-        RendererActionRequest::MessagingSend { .. } => Duration::from_secs(60),
+        RendererActionRequest::MessagingNewConversation => Duration::from_secs(10),
+        RendererActionRequest::MessagingSend { .. } => Duration::from_secs(130),
     }
 }
 
@@ -167,11 +168,15 @@ mod tests {
     #[test]
     fn renderer_action_timeout_allows_real_roundtrip_without_becoming_unbounded() {
         assert_eq!(
+            renderer_action_timeout(&RendererActionRequest::MessagingNewConversation),
+            Duration::from_secs(10)
+        );
+        assert_eq!(
             renderer_action_timeout(&RendererActionRequest::MessagingSend {
                 text: "hello".into(),
                 target_endpoint_id: None,
             }),
-            Duration::from_secs(60)
+            Duration::from_secs(130)
         );
     }
 }

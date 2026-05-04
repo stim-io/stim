@@ -53,6 +53,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Detect standalone prerequisites and next-step hints: `stim-dev detect`
 - Run controller-owned machine acceptance for messaging: `stim-dev accept controller messaging [text]`
 - Smoke renderer-visible messaging send path: `stim-dev smoke renderer messaging [text]`
+- Smoke renderer-visible two-turn continuation path: `stim-dev smoke renderer continuation [text]`
 - Start full local app loop: `stim-dev start`
 - Start controller-focused loop: `stim-dev start controller`
 - Start renderer-focused loop: `stim-dev start renderer`

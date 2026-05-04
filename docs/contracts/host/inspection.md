@@ -16,6 +16,7 @@ The canonical local operator surface is:
 - `stim-dev [--namespace <value>] reset`
 - `stim-dev accept controller messaging [text]`
 - `stim-dev smoke renderer messaging [text]`
+- `stim-dev smoke renderer continuation [text]`
 - `stim-dev inspect <app> <subcommand>` where leaves are strictly enumerated:
   - `stim-dev inspect tauri host`
   - `stim-dev inspect tauri screenshot [label]`
@@ -122,18 +123,23 @@ Although it writes an artifact, it belongs under `inspect` because it is UI-debu
 It drives the controller service contract directly, not the renderer DOM:
 
 1. start a clean controller runtime for the namespace
-2. send a text operation through the controller message-operation WebSocket
+2. send a first text operation through the controller message-operation WebSocket
 3. assert the controller snapshot over the persisted transcript
 4. restart the controller runtime
 5. reload the same transcript through the controller WebSocket
-6. fail with a non-zero exit code if any structured failure or content assertion fails
+6. send a second text operation into the same conversation asking the assistant to quote the previous user message
+7. restart and reload again
+8. assert the transcript contains both user turns, assistant replies, and the final assistant reply includes the prior user text
+9. fail with a non-zero exit code if any structured failure or content assertion fails
 
-`stim-dev smoke renderer messaging [text]` is a renderer projection smoke. It may use the declared renderer action bridge to drive the visible composer, but it should validate UI projection only:
+`stim-dev smoke renderer messaging [text]` is a one-turn renderer projection smoke. It may use the declared renderer action bridge to drive the visible composer, but it should validate UI projection only:
 
 - active conversation is visible
 - user and assistant entries are rendered
 - no visible error is reported
 - stable debug fields such as response source and final sent text remain readable
+
+`stim-dev smoke renderer continuation [text]` is the human-visible projection smoke for two-turn continuation. It should drive the visible New Conversation button and composer twice, then assert the final rendered assistant bubble includes the first user text.
 
 Do not use renderer smoke as the primary source of truth for whether the controller operation succeeded. Do not gate local verification on one exact open-ended model wording.
 

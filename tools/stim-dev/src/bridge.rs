@@ -200,7 +200,8 @@ fn renderer_probe_timeout(probe: &RendererProbeRequest) -> Duration {
 
 fn renderer_action_timeout(action: &RendererActionRequest) -> Duration {
     match action {
-        RendererActionRequest::MessagingSend { .. } => Duration::from_secs(70),
+        RendererActionRequest::MessagingNewConversation => Duration::from_secs(10),
+        RendererActionRequest::MessagingSend { .. } => Duration::from_secs(140),
     }
 }
 
@@ -296,7 +297,7 @@ mod tests {
                 text: "hello".into(),
                 target_endpoint_id: None,
             }),
-            Duration::from_secs(70)
+            Duration::from_secs(140)
         );
     }
 }

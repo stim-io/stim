@@ -90,6 +90,7 @@ pub enum RendererProbeRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "kebab-case")]
 pub enum RendererActionRequest {
+    MessagingNewConversation,
     MessagingSend {
         text: String,
         target_endpoint_id: Option<String>,
@@ -147,6 +148,7 @@ pub enum RendererProbeSnapshotKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "kebab-case")]
 pub enum RendererActionSnapshot {
+    MessagingNewConversation(RendererMessagingNewConversationSnapshot),
     MessagingSend(RendererMessagingSendSnapshot),
 }
 
@@ -186,6 +188,12 @@ pub struct RendererMessagingStateSnapshot {
 pub struct RendererMessagingSendSnapshot {
     pub submitted_text: String,
     pub target_endpoint_id: String,
+    pub before: RendererMessagingStateSnapshot,
+    pub after: RendererMessagingStateSnapshot,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RendererMessagingNewConversationSnapshot {
     pub before: RendererMessagingStateSnapshot,
     pub after: RendererMessagingStateSnapshot,
 }

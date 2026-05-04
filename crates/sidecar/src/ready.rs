@@ -88,6 +88,7 @@ where
                 Ok(_) => {
                     if let Ok(ready) = serde_json::from_str::<SidecarReadyLine>(line.trim()) {
                         let _ = sender.send(Ok(ready));
+                        drain_remaining_lines(reader);
                         return;
                     }
                 }
@@ -102,6 +103,16 @@ where
     receiver
         .recv_timeout(timeout)
         .map_err(|_| ReadyLineWaitError::TimedOut)?
+}
+
+fn drain_remaining_lines<R>(mut reader: BufReader<R>)
+where
+    R: Read,
+{
+    let mut line = String::new();
+    while reader.read_line(&mut line).is_ok_and(|read| read > 0) {
+        line.clear();
+    }
 }
 
 #[cfg(test)]
