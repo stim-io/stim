@@ -14,7 +14,7 @@ pub(crate) struct StartOptions {
 }
 
 pub(crate) fn help_text() -> &'static str {
-    "stim-dev [--namespace <value>] commands:\n  default namespace is the fallback when --namespace is omitted\n  start [all|controller|renderer|tauri]\n  restart [all|controller|renderer|tauri]\n  detect\n  accept controller messaging [text]\n  smoke renderer messaging [text]\n  status\n  inspect tauri host\n  inspect tauri screenshot [label]\n  inspect renderer landing\n  inspect renderer messaging\n  list\n  stop\n  reset\n  help"
+    "stim-dev [--namespace <value>] commands:\n  default namespace is the fallback when --namespace is omitted\n  start [all|controller|renderer|tauri]\n  restart [all|controller|renderer|tauri]\n  detect\n  accept controller messaging [text]\n  smoke renderer messaging [text]\n  smoke renderer continuation [text]\n  status\n  inspect tauri host\n  inspect tauri screenshot [label]\n  inspect renderer landing\n  inspect renderer messaging\n  list\n  stop\n  reset\n  help"
 }
 
 pub(crate) fn print_help() {
@@ -138,6 +138,11 @@ mod tests {
     #[test]
     fn help_lists_renderer_messaging_smoke_as_a_dev_smoke_command() {
         assert!(super::help_text().contains("smoke renderer messaging [text]"));
+    }
+
+    #[test]
+    fn help_lists_renderer_continuation_smoke_as_a_human_visible_smoke_command() {
+        assert!(super::help_text().contains("smoke renderer continuation [text]"));
     }
 
     #[test]

@@ -87,11 +87,14 @@ The current local acceptance command is:
 
 - `stim-dev accept controller messaging [text]`
 
+It should prove conversation continuation, not only first-send transport: create/send the first turn, restart/reload the transcript, send a second turn into the same conversation asking the assistant to quote the prior user text, restart/reload again, then assert both user turns, assistant replies, and the final assistant's reference to the prior user text are present.
+
 Renderer smoke should validate UI projection only:
 
 - renderer sees the expected active conversation
 - renderer displays expected user/assistant entries
 - renderer reports no visible error
+- renderer continuation smoke verifies the final visible assistant bubble includes the first user text
 
 Renderer smoke should not be the primary source of truth for whether the operation succeeded.
 

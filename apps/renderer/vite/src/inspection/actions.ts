@@ -6,12 +6,21 @@ import {
 type RendererActionRequest = {
   request_id: string;
   requested_at: string;
-  action: {
-    action: "messaging-send";
-    text: string;
-    target_endpoint_id: string | null;
-  };
+  action:
+    | {
+        action: "messaging-new-conversation";
+      }
+    | {
+        action: "messaging-send";
+        text: string;
+        target_endpoint_id: string | null;
+      };
 };
+
+type RendererMessagingSendAction = Extract<
+  RendererActionRequest["action"],
+  { action: "messaging-send" }
+>;
 
 type RendererActionResponse = {
   request_id: string;
@@ -19,13 +28,19 @@ type RendererActionResponse = {
   result:
     | {
         kind: "success";
-        snapshot: {
-          action: "messaging-send";
-          submitted_text: string;
-          target_endpoint_id: string;
-          before: RendererMessagingStateSnapshot;
-          after: RendererMessagingStateSnapshot;
-        };
+        snapshot:
+          | {
+              action: "messaging-send";
+              submitted_text: string;
+              target_endpoint_id: string;
+              before: RendererMessagingStateSnapshot;
+              after: RendererMessagingStateSnapshot;
+            }
+          | {
+              action: "messaging-new-conversation";
+              before: RendererMessagingStateSnapshot;
+              after: RendererMessagingStateSnapshot;
+            };
       }
     | {
         kind: "failure";
@@ -36,6 +51,7 @@ type RendererActionResponse = {
 
 const REQUEST_EVENT = "stim://inspection/renderer-action-request";
 const RESPONSE_EVENT = "stim://inspection/renderer-action-response";
+const MESSAGING_SEND_ACTION_TIMEOUT_MS = 120_000;
 
 function hasTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -56,6 +72,12 @@ function targetEndpointInput(): HTMLInputElement | null {
 function sendButton(): HTMLButtonElement | null {
   return document.querySelector<HTMLButtonElement>(
     '[data-probe="landing-actions"] button',
+  );
+}
+
+function newConversationButton(): HTMLButtonElement | null {
+  return document.querySelector<HTMLButtonElement>(
+    '[data-probe="new-conversation-button"]',
   );
 }
 
@@ -120,7 +142,52 @@ async function waitForSentMessagingState(
   throw new Error("messaging UI did not reach sent state before timeout");
 }
 
-async function performMessagingSend(action: RendererActionRequest["action"]) {
+async function waitForEmptyConversationState(timeoutMs: number) {
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    const after = readRendererMessagingState();
+
+    if (
+      after.active_conversation_id === null &&
+      after.chat_entry_count === 0 &&
+      after.user_entry_count === 0 &&
+      after.assistant_entry_count === 0 &&
+      !after.error_message
+    ) {
+      return after;
+    }
+
+    if (after.error_message) {
+      throw new Error(after.error_message);
+    }
+
+    await sleep(50);
+  }
+
+  throw new Error(
+    "messaging UI did not reset to a new conversation before timeout",
+  );
+}
+
+async function performMessagingNewConversation() {
+  const button = newConversationButton();
+  if (!button) {
+    throw new Error("new conversation button not found");
+  }
+
+  const before = readRendererMessagingState();
+  button.click();
+  const after = await waitForEmptyConversationState(5_000);
+
+  return {
+    action: "messaging-new-conversation" as const,
+    before,
+    after,
+  };
+}
+
+async function performMessagingSend(action: RendererMessagingSendAction) {
   const text = action.text.trim();
   if (!text) {
     throw new Error("messaging smoke text must not be empty");
@@ -146,7 +213,11 @@ async function performMessagingSend(action: RendererActionRequest["action"]) {
   setInputValue(message, text);
   const button = await waitForEnabledSendButton(5_000);
   button.click();
-  const after = await waitForSentMessagingState(before, text, 45_000);
+  const after = await waitForSentMessagingState(
+    before,
+    text,
+    MESSAGING_SEND_ACTION_TIMEOUT_MS,
+  );
 
   return {
     action: "messaging-send" as const,
@@ -177,9 +248,11 @@ async function handleActionRequest(request: RendererActionRequest) {
 
   try {
     const snapshot =
-      request.action.action === "messaging-send"
-        ? await performMessagingSend(request.action)
-        : null;
+      request.action.action === "messaging-new-conversation"
+        ? await performMessagingNewConversation()
+        : request.action.action === "messaging-send"
+          ? await performMessagingSend(request.action)
+          : null;
 
     if (!snapshot) {
       throw new Error("unsupported renderer action");
