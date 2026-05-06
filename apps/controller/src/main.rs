@@ -28,7 +28,7 @@ fn run() -> Result<(), String> {
 
 fn serve(args: Vec<String>) -> Result<(), String> {
     let stamp = read_stamp(&args).map_err(|error| format!("invalid sidecar stamp: {error}"))?;
-    let handle = stim_controller::service::spawn_local_controller(Some(&stamp.namespace))?;
+    let handle = stim_controller::spawn_local_controller(Some(&stamp.namespace))?;
     let snapshot = handle.snapshot();
     let ready_line = SidecarReadyLine::new(
         stamp,
@@ -48,7 +48,7 @@ fn serve(args: Vec<String>) -> Result<(), String> {
 }
 
 fn proof() -> Result<(), String> {
-    match stim_controller::controller::run() {
+    match stim_controller::run_controller_proof() {
         Ok(summary) => {
             println!(
                 "stim-controller controller proof ok: server={} endpoint={} target={} envelope={} response={} receipt={:?}",

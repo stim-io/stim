@@ -54,7 +54,7 @@ pub fn capture_main_window_screenshot<R: Runtime>(
 
     #[cfg(target_os = "macos")]
     {
-        return capture_on_macos(window, label);
+        capture_on_macos(window, label)
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -89,7 +89,7 @@ fn capture_on_macos<R: Runtime>(
     let label = sanitize_label(label);
     let file_path = screenshot_file_path(&captured_at, label.as_deref());
 
-    if let Err(_) = fs::create_dir_all(main_window_screenshots_dir()) {
+    if fs::create_dir_all(main_window_screenshots_dir()).is_err() {
         return ScreenshotResult::Failure {
             reason: ScreenshotFailureReason::CaptureFailed,
         };

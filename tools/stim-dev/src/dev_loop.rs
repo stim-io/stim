@@ -3,12 +3,12 @@ use std::time::Duration;
 use stim_sidecar::{identity::SidecarMode, process::StampedProcessCriteria};
 
 use crate::{
-    bridge::{request_controller_runtime_with_timeout, request_inspect_with_timeout},
     cli::{StartOptions, StartTarget},
-    runtime_control::{
+    control::{
         current_namespace, require_renderer_landing, stamped_processes_for_namespace,
         stop_matching_processes, stop_renderer_dev_server_processes, stop_tauri_host_processes,
     },
+    shared::bridge::{request_controller_runtime_with_timeout, request_inspect_with_timeout},
     sidecars::{
         spawn_controller_ready, spawn_controller_ready_detached, spawn_renderer_ready,
         spawn_renderer_ready_detached, spawn_tauri, spawn_tauri_detached, start_controller,

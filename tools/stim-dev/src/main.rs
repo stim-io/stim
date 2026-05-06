@@ -1,20 +1,19 @@
 use std::{env, process::exit};
 
 mod acceptance;
-mod bridge;
 mod cli;
-mod clock;
+mod control;
 mod detect;
 mod dev_loop;
-mod runtime_control;
+mod shared;
 mod sidecars;
 mod smoke;
 
 use acceptance::accept;
 use cli::{help_text, parse_command_line, parse_start_options, print_help, reject_extra_args};
+use control::{inspect, list, reset, status, stop};
 use detect::detect;
 use dev_loop::{restart, start, ExistingInstancePolicy};
-use runtime_control::{inspect, list, reset, status, stop};
 use smoke::smoke;
 use stim_sidecar::identity::SIDECAR_NAMESPACE_ENV;
 

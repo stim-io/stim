@@ -39,7 +39,7 @@ pub struct ControllerRuntimeBridgeResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum InspectResult {
-    Success { snapshot: InspectSnapshot },
+    Success { snapshot: Box<InspectSnapshot> },
     Failure { reason: InspectFailureReason },
 }
 
@@ -100,15 +100,19 @@ pub enum RendererActionRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum RendererProbeResult {
-    Success { snapshot: RendererProbeSnapshot },
-    Failure { reason: RendererProbeFailureReason },
+    Success {
+        snapshot: Box<RendererProbeSnapshot>,
+    },
+    Failure {
+        reason: RendererProbeFailureReason,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum RendererActionResult {
     Success {
-        snapshot: RendererActionSnapshot,
+        snapshot: Box<RendererActionSnapshot>,
     },
     Failure {
         reason: RendererActionFailureReason,
@@ -178,6 +182,8 @@ pub struct RendererMessagingStateSnapshot {
     pub response_text: Option<String>,
     pub response_source: Option<String>,
     pub final_sent_text: Option<String>,
+    pub tool_activity_count: usize,
+    pub latest_tool_activity_summary: Option<String>,
     pub assistant_response_content_kind: Option<String>,
     pub assistant_fragment_present: bool,
     pub error_message: Option<String>,

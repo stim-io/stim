@@ -25,6 +25,7 @@ export const staticSessions: readonly SessionSummary[] = [
     unreadCount: 2,
     participantLabel: "DS",
     live: false,
+    toolActivities: [],
     messages: [
       createChatMessage(
         "design-1",
@@ -54,6 +55,7 @@ export const staticSessions: readonly SessionSummary[] = [
     unreadCount: 0,
     participantLabel: "QA",
     live: false,
+    toolActivities: [],
     messages: [
       createChatMessage(
         "qa-1",
