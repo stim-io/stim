@@ -56,6 +56,14 @@ impl FetchClient {
 
                     if status == StatusCode::NOT_FOUND {
                         if let FetchNotFound::Payload(payload) = &options.not_found {
+                            if let Some(delay) =
+                                status_retry_delay(&options.retry, attempt, &method, path, status)
+                            {
+                                metadata.retries += 1;
+                                thread::sleep(delay);
+                                continue;
+                            }
+
                             metadata.elapsed_ms = started.elapsed().as_millis();
                             return Ok(FetchOutcome {
                                 payload: payload(),
@@ -73,13 +81,9 @@ impl FetchClient {
                         return Ok(FetchOutcome { payload, metadata });
                     }
 
-                    if let Some(delay) = options.retry.retry_delay(FetchRetryContext {
-                        attempt,
-                        method: &method,
-                        path,
-                        status: Some(status.as_u16()),
-                        error: None,
-                    }) {
+                    if let Some(delay) =
+                        status_retry_delay(&options.retry, attempt, &method, path, status)
+                    {
                         metadata.retries += 1;
                         thread::sleep(delay);
                         continue;
@@ -333,6 +337,22 @@ fn default_retry_decision(context: &FetchRetryContext<'_>) -> FetchRetryDecision
         None if context.error.is_some() => FetchRetryDecision::Retry,
         _ => FetchRetryDecision::Fail,
     }
+}
+
+fn status_retry_delay(
+    retry: &FetchRetry,
+    attempt: usize,
+    method: &Method,
+    path: &str,
+    status: StatusCode,
+) -> Option<Duration> {
+    retry.retry_delay(FetchRetryContext {
+        attempt,
+        method,
+        path,
+        status: Some(status.as_u16()),
+        error: None,
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
