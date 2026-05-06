@@ -52,6 +52,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Run repo guard: `pnpm run guard` (Rust fmt/controller-tool tests plus client and renderer typechecks)
 - Detect standalone prerequisites and next-step hints: `stim-dev detect`
 - Run controller-owned machine acceptance for messaging: `stim-dev accept controller messaging [text]`
+- Run controller-owned machine acceptance for tool activity visibility: `stim-dev accept controller tool-activity [text]`
 - Smoke renderer-visible messaging send path: `stim-dev smoke renderer messaging [text]`
 - Smoke renderer-visible two-turn continuation path: `stim-dev smoke renderer continuation [text]`
 - Start full local app loop: `stim-dev start`

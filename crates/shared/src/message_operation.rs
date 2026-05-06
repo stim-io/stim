@@ -66,11 +66,14 @@ pub struct ControllerOperationSnapshot {
     pub message_count: usize,
     pub user_message_count: usize,
     pub assistant_message_count: usize,
+    pub tool_activity_count: usize,
+    pub tool_result_count: usize,
     pub last_user_text: Option<String>,
     pub last_assistant_text: Option<String>,
     pub final_sent_text: Option<String>,
     pub response_text_source: Option<String>,
     pub messages: Vec<ControllerOperationMessage>,
+    pub tool_activities: Vec<ControllerOperationToolActivity>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -78,6 +81,21 @@ pub struct ControllerOperationMessage {
     pub id: String,
     pub role: String,
     pub text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ControllerOperationToolActivity {
+    pub tool_call_id: String,
+    pub tool_name: String,
+    pub tool_call_seq: i64,
+    pub result_state: String,
+    pub tool_result_id: Option<String>,
+    pub tool_result_seq: Option<i64>,
+    pub exit_code: Option<i64>,
+    pub duration_ms: Option<u64>,
+    pub stdout_chars: Option<u64>,
+    pub stderr_chars: Option<u64>,
+    pub output_summary: Option<String>,
 }
 
 impl ControllerOperationEvent {

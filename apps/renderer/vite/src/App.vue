@@ -15,6 +15,7 @@ import type { ChatMessage, SessionSummary } from "./components/im/types";
 import {
   fetchConversationTranscript,
   sendFirstMessage,
+  type ConversationToolActivity,
   type FirstMessageResponse,
   type TranscriptMessage,
 } from "./controller/client";
@@ -35,6 +36,7 @@ const activeConversationId = ref<string | null>(storedConversationId);
 const liveMessages = ref<ChatMessage[]>(
   storedConversationId ? [] : initialLiveMessages(),
 );
+const liveToolActivities = ref<ConversationToolActivity[]>([]);
 const activeSessionId = ref("live-controller");
 const isSessionDrawerCollapsed = ref(false);
 const sessionQuery = ref("");
@@ -68,6 +70,7 @@ const sessions = computed<SessionSummary[]>(() => {
       participantLabel: "AI",
       live: controllerAttached.value,
       messages: liveMessages.value,
+      toolActivities: liveToolActivities.value,
     },
     ...staticSessions,
   ];
@@ -121,10 +124,17 @@ onMounted(async () => {
   }
 
   if (activeConversationId.value) {
+    const conversationId = activeConversationId.value;
     try {
-      await reloadConversation(activeConversationId.value);
+      await reloadConversation(conversationId, { applyOnlyIfActive: true });
     } catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : String(error);
+      if (activeConversationId.value === conversationId) {
+        activeConversationId.value = null;
+        clearStoredConversationId();
+        liveMessages.value = [];
+        liveToolActivities.value = [];
+        errorMessage.value = error instanceof Error ? error.message : String(error);
+      }
     }
   }
 });
@@ -194,17 +204,26 @@ function handleNewConversation() {
   activeConversationId.value = null;
   clearStoredConversationId();
   liveMessages.value = [];
+  liveToolActivities.value = [];
   sendResult.value = null;
   errorMessage.value = null;
   optimisticMessageId.value = null;
   draftText.value = "";
 }
 
-async function reloadConversation(conversationId: string) {
+async function reloadConversation(
+  conversationId: string,
+  options: { applyOnlyIfActive?: boolean } = {},
+) {
   const transcript = await fetchConversationTranscript(conversationId);
+  if (options.applyOnlyIfActive && activeConversationId.value !== conversationId) {
+    return;
+  }
+
   activeConversationId.value = transcript.conversation_id;
   storeConversationId(transcript.conversation_id);
   liveMessages.value = transcript.messages.map(mapTranscriptMessage);
+  liveToolActivities.value = transcript.tool_activities;
 }
 
 function applyRoundtripFallback(response: FirstMessageResponse, pendingId: string) {

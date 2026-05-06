@@ -3,12 +3,13 @@ use stim_proto::DiscoveryRecord;
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::controller;
+use crate::fetch::FetchError;
 
 use super::{
     clock::timestamp_now,
     operations::controller_operation_socket,
     stim_server::{discover_endpoint_via_server, register_endpoint_via_server},
-    transcript::fetch_santi_conversation_messages,
+    transcript::{fetch_santi_conversation_messages, fetch_santi_conversation_tool_activities},
     types::{
         map_message_content, map_santi_transcript, ControllerHttpState,
         ConversationTranscriptResponse, FirstMessageRequest, FirstMessageResponse,
@@ -58,9 +59,36 @@ async fn conversation_messages(
             format!("controller transcript fetch join failed: {error}"),
         )
     })?
-    .map_err(|error| (StatusCode::BAD_GATEWAY, error))?;
+    .map_err(map_santi_fetch_error)?;
 
-    Ok(Json(map_santi_transcript(conversation_id, messages)))
+    let santi_base_url = state.santi_base_url.clone();
+    let conversation_id_for_fetch = conversation_id.clone();
+    let tool_activities = tokio::task::spawn_blocking(move || {
+        fetch_santi_conversation_tool_activities(&santi_base_url, &conversation_id_for_fetch)
+    })
+    .await
+    .map_err(|error| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("controller tool activity fetch join failed: {error}"),
+        )
+    })?
+    .map_err(map_santi_fetch_error)?;
+
+    Ok(Json(map_santi_transcript(
+        conversation_id,
+        messages.payload,
+        tool_activities.payload,
+    )))
+}
+
+fn map_santi_fetch_error(error: FetchError) -> (StatusCode, String) {
+    let status = match error.metadata.last_status {
+        Some(404) => StatusCode::NOT_FOUND,
+        _ => StatusCode::BAD_GATEWAY,
+    };
+
+    (status, error.to_string())
 }
 
 async fn health() -> Json<&'static str> {

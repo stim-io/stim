@@ -132,7 +132,7 @@ fn require_action_success(
     label: &str,
 ) -> Result<RendererActionSnapshot, String> {
     match result {
-        RendererActionResult::Success { snapshot } => Ok(snapshot),
+        RendererActionResult::Success { snapshot } => Ok(*snapshot),
         RendererActionResult::Failure { reason, detail } => Err(format!(
             "renderer {label} action failed: {}{}",
             action_failure_reason_name(reason),
@@ -273,6 +273,8 @@ mod tests {
             response_text: Some("marker kiwi lantern".into()),
             response_source: Some("stim_reply_handle".into()),
             final_sent_text: Some(super::CONTINUATION_FOLLOWUP_TEXT.into()),
+            tool_activity_count: 0,
+            latest_tool_activity_summary: None,
             assistant_response_content_kind: Some("text".into()),
             assistant_fragment_present: false,
             error_message: None,

@@ -1,4 +1,7 @@
-import type { MessageContent } from "../../controller/client";
+import type {
+  ConversationToolActivity,
+  MessageContent,
+} from "../../controller/client";
 
 export type ChatMessage = {
   id: string;
@@ -18,5 +21,6 @@ export type SessionSummary = {
   unreadCount: number;
   participantLabel: string;
   messages: ChatMessage[];
+  toolActivities: ConversationToolActivity[];
   live: boolean;
 };

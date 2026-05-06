@@ -14,7 +14,7 @@ pub(crate) struct StartOptions {
 }
 
 pub(crate) fn help_text() -> &'static str {
-    "stim-dev [--namespace <value>] commands:\n  default namespace is the fallback when --namespace is omitted\n  start [all|controller|renderer|tauri]\n  restart [all|controller|renderer|tauri]\n  detect\n  accept controller messaging [text]\n  smoke renderer messaging [text]\n  smoke renderer continuation [text]\n  status\n  inspect tauri host\n  inspect tauri screenshot [label]\n  inspect renderer landing\n  inspect renderer messaging\n  list\n  stop\n  reset\n  help"
+    "stim-dev [--namespace <value>] commands:\n  default namespace is the fallback when --namespace is omitted\n  start [all|controller|renderer|tauri]\n  restart [all|controller|renderer|tauri]\n  detect\n  accept controller messaging [text]\n  accept controller tool-activity [text]\n  smoke renderer messaging [text]\n  smoke renderer continuation [text]\n  status\n  inspect tauri host\n  inspect tauri screenshot [label]\n  inspect renderer landing\n  inspect renderer messaging\n  list\n  stop\n  reset\n  help"
 }
 
 pub(crate) fn print_help() {
@@ -148,5 +148,10 @@ mod tests {
     #[test]
     fn help_lists_controller_messaging_acceptance_as_machine_gate() {
         assert!(super::help_text().contains("accept controller messaging [text]"));
+    }
+
+    #[test]
+    fn help_lists_controller_tool_activity_acceptance_as_machine_gate() {
+        assert!(super::help_text().contains("accept controller tool-activity [text]"));
     }
 }

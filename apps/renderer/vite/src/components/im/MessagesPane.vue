@@ -40,6 +40,18 @@ const canSend = computed(
   () =>
     props.session.live && !props.isLoading && props.draftText.trim().length > 0,
 );
+const latestToolActivity = computed(
+  () => props.session.toolActivities.at(-1) ?? null,
+);
+const toolActivitySummary = computed(() => {
+  const activity = latestToolActivity.value;
+  if (!activity) {
+    return null;
+  }
+
+  const result = activity.output_summary ?? activity.result_state;
+  return `${props.session.toolActivities.length} activity · ${activity.tool_name} · ${result}`;
+});
 
 const emit = defineEmits<{
   "update:draftText": [value: string];
@@ -257,6 +269,12 @@ function handleComposerEnter(event: KeyboardEvent) {
                   <dt>Final sent text</dt>
                   <dd data-probe="last-final-sent-text">
                     {{ lastFinalSentText }}
+                  </dd>
+                </div>
+                <div v-if="toolActivitySummary">
+                  <dt>Tool activity</dt>
+                  <dd data-probe="tool-activity-summary">
+                    {{ toolActivitySummary }}
                   </dd>
                 </div>
                 <div v-if="errorMessage">

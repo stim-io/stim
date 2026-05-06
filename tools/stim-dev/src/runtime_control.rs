@@ -233,7 +233,7 @@ pub(crate) fn stamped_processes_for_namespace(
 
 pub(crate) fn require_renderer_landing() -> Result<RendererProbeSnapshot, String> {
     match request_probe(RendererProbeRequest::LandingBasics)? {
-        RendererProbeResult::Success { snapshot } => Ok(snapshot),
+        RendererProbeResult::Success { snapshot } => Ok(*snapshot),
         RendererProbeResult::Failure { reason } => {
             Err(format!("renderer landing probe failed: {:?}", reason))
         }

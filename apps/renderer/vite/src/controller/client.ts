@@ -76,9 +76,24 @@ export type TranscriptMessage = {
   meta_label: string | null;
 };
 
+export type ConversationToolActivity = {
+  tool_call_id: string;
+  tool_name: string;
+  tool_call_seq: number;
+  result_state: string;
+  tool_result_id: string | null;
+  tool_result_seq: number | null;
+  exit_code: number | null;
+  duration_ms: number | null;
+  stdout_chars: number | null;
+  stderr_chars: number | null;
+  output_summary: string | null;
+};
+
 export type ConversationTranscriptResponse = {
   conversation_id: string;
   messages: TranscriptMessage[];
+  tool_activities: ConversationToolActivity[];
 };
 
 export async function sendFirstMessage(

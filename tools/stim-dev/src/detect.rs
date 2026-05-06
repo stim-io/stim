@@ -17,7 +17,8 @@ const DEFAULT_STIM_SERVER_BASE_URL: &str = "http://127.0.0.1:18083";
 const DEFAULT_SANTI_BASE_URL: &str = "http://127.0.0.1:18081";
 const DEFAULT_SANTI_LINK_BASE_URL: &str = "http://127.0.0.1:18082";
 
-const STANDALONE_COMPOSE_HINT: &str = "docker compose up -d --build stim-server santi-link santi";
+const STANDALONE_COMPOSE_HINT: &str = "docker compose up -d --build stim-server santi-link";
+const LOCAL_SANTI_HINT: &str = "scripts/santi local";
 
 pub(crate) fn detect() -> Result<(), String> {
     let report = DetectReport::collect();
@@ -55,18 +56,21 @@ impl DetectReport {
                 Some("STIM_SERVER_BASE_URL"),
                 DEFAULT_STIM_SERVER_BASE_URL,
                 "/api/v1/health",
+                "compose-default",
             ),
             ServiceProbe::check(
                 "santi",
                 Some("SANTI_BASE_URL"),
                 DEFAULT_SANTI_BASE_URL,
                 "/api/v1/health",
+                "local-santi-default",
             ),
             ServiceProbe::check(
                 "santi-link",
                 None,
                 DEFAULT_SANTI_LINK_BASE_URL,
                 "/openai/v1/health",
+                "compose-default",
             ),
         ];
         let summary = summarize(&files, &services);
@@ -309,6 +313,7 @@ impl ServiceProbe {
         env_var: Option<&'static str>,
         default_base_url: &'static str,
         health_path: &'static str,
+        default_source: &'static str,
     ) -> Self {
         let env_base_url = env_var
             .and_then(|key| env::var(key).ok())
@@ -317,7 +322,7 @@ impl ServiceProbe {
         let source = if env_base_url.is_some() {
             "env-override"
         } else {
-            "compose-default"
+            default_source
         };
         let base_url = env_base_url.unwrap_or_else(|| default_base_url.to_string());
 
@@ -358,6 +363,10 @@ impl ServiceProbe {
 
     fn uses_compose_default(&self) -> bool {
         self.source == "compose-default"
+    }
+
+    fn uses_local_santi_default(&self) -> bool {
+        self.name == "santi" && self.source == "local-santi-default"
     }
 }
 
@@ -412,6 +421,18 @@ fn operation_hints(
                 "Root compose prerequisites are not ready. From {root}, run: {STANDALONE_COMPOSE_HINT}"
             ),
             _ => "Root compose prerequisites are not ready and no attached root docker-compose.yml was detected. Attach under the root workspace or set STIM_SERVER_BASE_URL and SANTI_BASE_URL to reachable services.".into(),
+        });
+    }
+
+    if services
+        .iter()
+        .any(|service| !service.is_ready() && service.uses_local_santi_default())
+    {
+        hints.push(match root_workspace.path.as_deref() {
+            Some(root) => format!(
+                "Default local Santi is not ready. From {root}, run: {LOCAL_SANTI_HINT}"
+            ),
+            None => "Default local Santi is not ready. Attach under the root workspace and run the root-owned local Santi foreground command, or set SANTI_BASE_URL to a reachable service.".into(),
         });
     }
 
@@ -574,7 +595,7 @@ mod tests {
     }
 
     #[test]
-    fn hints_explain_compose_prerequisite_without_owning_lifecycle() {
+    fn hints_explain_root_prerequisites_without_owning_lifecycle() {
         let root_workspace = RootWorkspaceProbe {
             state: "attached",
             path: Some("/workspace".into()),
@@ -593,15 +614,26 @@ mod tests {
                 detail: "file exists".into(),
             },
         };
-        let services = vec![ServiceProbe {
-            name: "santi",
-            source: "compose-default",
-            env_var: Some("SANTI_BASE_URL"),
-            base_url: "http://127.0.0.1:18081".into(),
-            health_path: "/api/v1/health",
-            state: "unavailable",
-            detail: "connection refused".into(),
-        }];
+        let services = vec![
+            ServiceProbe {
+                name: "stim-server",
+                source: "compose-default",
+                env_var: Some("STIM_SERVER_BASE_URL"),
+                base_url: "http://127.0.0.1:18083".into(),
+                health_path: "/api/v1/health",
+                state: "unavailable",
+                detail: "connection refused".into(),
+            },
+            ServiceProbe {
+                name: "santi",
+                source: "local-santi-default",
+                env_var: Some("SANTI_BASE_URL"),
+                base_url: "http://127.0.0.1:18081".into(),
+                health_path: "/api/v1/health",
+                state: "unavailable",
+                detail: "connection refused".into(),
+            },
+        ];
         let summary = summarize(&files, &services);
         let app_loop = AppLoopProbe {
             state: "stopped-clean",
@@ -614,7 +646,8 @@ mod tests {
         let hints =
             operation_hints(&root_workspace, &files, &services, &summary, &app_loop).join("\n");
 
-        assert!(hints.contains("docker compose up -d --build stim-server santi-link santi"));
+        assert!(hints.contains("docker compose up -d --build stim-server santi-link"));
+        assert!(hints.contains("scripts/santi local"));
         assert!(hints.contains("read-only"));
         assert!(!hints.contains("start-standalone"));
     }
@@ -641,7 +674,7 @@ mod tests {
         };
         let services = vec![ServiceProbe {
             name: "santi",
-            source: "compose-default",
+            source: "local-santi-default",
             env_var: Some("SANTI_BASE_URL"),
             base_url: "http://127.0.0.1:18081".into(),
             health_path: "/api/v1/health",
@@ -690,7 +723,7 @@ mod tests {
         };
         let services = vec![ServiceProbe {
             name: "santi",
-            source: "compose-default",
+            source: "local-santi-default",
             env_var: Some("SANTI_BASE_URL"),
             base_url: "http://127.0.0.1:18081".into(),
             health_path: "/api/v1/health",

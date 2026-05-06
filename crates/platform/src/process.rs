@@ -58,10 +58,7 @@ pub fn list_process_snapshots() -> std::io::Result<Vec<ProcessSnapshot>> {
         .output()?;
 
     if !output.status.success() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "ps command failed",
-        ));
+        return Err(std::io::Error::other("ps command failed"));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -166,10 +163,9 @@ fn signal_pids(pids: &[u32], signal: &str) -> std::io::Result<()> {
             .status()?;
 
         if !status.success() && process_is_alive(*pid)? {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("failed to send SIG{signal} to pid {pid}"),
-            ));
+            return Err(std::io::Error::other(format!(
+                "failed to send SIG{signal} to pid {pid}"
+            )));
         }
     }
 

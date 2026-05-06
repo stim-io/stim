@@ -1,12 +1,15 @@
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
     thread,
     time::Duration,
 };
 
-use axum::{routing::get, routing::post, Json, Router};
+use axum::{http::StatusCode, response::IntoResponse, routing::get, routing::post, Json, Router};
 use stim_proto::{
     AcknowledgementResult, MessageEnvelope, ProtocolAcknowledgement, ProtocolSubmission,
     ReplyHandle, ReplySnapshot, ReplyStatus,
@@ -43,14 +46,32 @@ fn spawn_test_stim_server() -> String {
 }
 
 fn spawn_test_santi_server() -> String {
+    spawn_test_santi_server_with_transcript_failures(0)
+}
+
+fn spawn_test_santi_server_with_transcript_failures(
+    transient_transcript_failures: usize,
+) -> String {
+    spawn_test_santi_server_with_transient_transcript_status(
+        transient_transcript_failures,
+        StatusCode::BAD_GATEWAY,
+    )
+}
+
+fn spawn_test_santi_server_with_transient_transcript_status(
+    transient_transcript_failures: usize,
+    transient_transcript_status: StatusCode,
+) -> String {
     let std_listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let local_addr = std_listener.local_addr().unwrap();
     std_listener.set_nonblocking(true).unwrap();
+    let transcript_attempts = Arc::new(AtomicUsize::new(0));
 
     thread::spawn(move || {
         let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime.block_on(async move {
             let listener = tokio::net::TcpListener::from_std(std_listener).unwrap();
+            let transcript_attempts = transcript_attempts.clone();
             let app = Router::new()
                 .route("/api/v1/health", get(|| async { Json("ok") }))
                 .route(
@@ -108,26 +129,64 @@ fn spawn_test_santi_server() -> String {
                 )
                 .route(
                     "/api/v1/sessions/{session_id}/messages",
+                    get(move || {
+                        let transcript_attempts = transcript_attempts.clone();
+                        async move {
+                            if transcript_attempts.fetch_add(1, Ordering::SeqCst)
+                                < transient_transcript_failures
+                            {
+                                return (
+                                    transient_transcript_status,
+                                    "transient transcript failure",
+                                )
+                                    .into_response();
+                            }
+
+                            Json(serde_json::json!({
+                                "messages": [
+                                    {
+                                        "id": "msg-1",
+                                        "actor_type": "account",
+                                        "actor_id": "endpoint-a",
+                                        "session_seq": 1,
+                                        "content_text": "hello from persisted transcript",
+                                        "state": "fixed",
+                                        "created_at": "2026-04-30T00:00:00Z"
+                                    },
+                                    {
+                                        "id": "msg-2",
+                                        "actor_type": "soul",
+                                        "actor_id": "soul_default",
+                                        "session_seq": 2,
+                                        "content_text": "hello from mock santi",
+                                        "state": "fixed",
+                                        "created_at": "2026-04-30T00:00:01Z"
+                                    }
+                                ]
+                            }))
+                            .into_response()
+                        }
+                    }),
+                )
+                .route(
+                    "/api/v1/sessions/{session_id}/tool-activities",
                     get(|| async move {
                         Json(serde_json::json!({
-                            "messages": [
+                            "tool_activities": [
                                 {
-                                    "id": "msg-1",
-                                    "actor_type": "account",
-                                    "actor_id": "endpoint-a",
-                                    "session_seq": 1,
-                                    "content_text": "hello from persisted transcript",
-                                    "state": "fixed",
-                                    "created_at": "2026-04-30T00:00:00Z"
-                                },
-                                {
-                                    "id": "msg-2",
-                                    "actor_type": "soul",
-                                    "actor_id": "soul_default",
-                                    "session_seq": 2,
-                                    "content_text": "hello from mock santi",
-                                    "state": "fixed",
-                                    "created_at": "2026-04-30T00:00:01Z"
+                                    "tool_call_id": "call-1",
+                                    "tool_name": "bash",
+                                    "tool_call_seq": 3,
+                                    "tool_call_created_at": "2026-04-30T00:00:02Z",
+                                    "tool_result_id": "result-1",
+                                    "tool_result_seq": 4,
+                                    "tool_result_created_at": "2026-04-30T00:00:03Z",
+                                    "result_state": "completed",
+                                    "exit_code": 0,
+                                    "duration_ms": 12,
+                                    "stdout_chars": 5,
+                                    "stderr_chars": 0,
+                                    "output_summary": "bash exit 0; stdout 5 chars; stderr 0 chars"
                                 }
                             ]
                         }))
@@ -222,8 +281,200 @@ fn spawned_controller_serves_conversation_transcript_over_http() {
     assert!(response.contains("hello from mock santi"));
     assert!(response.contains("\"role\":\"user\""));
     assert!(response.contains("\"role\":\"assistant\""));
+    assert!(response.contains("\"tool_activities\""));
+    assert!(response.contains("bash exit 0; stdout 5 chars; stderr 0 chars"));
     unsafe { std::env::remove_var("STIM_SERVER_BASE_URL") };
     unsafe { std::env::remove_var("SANTI_BASE_URL") };
+}
+
+#[test]
+fn spawned_controller_recovers_from_transient_santi_transcript_failure() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let stim_server_base_url = spawn_test_stim_server();
+    let santi_base_url = spawn_test_santi_server_with_transcript_failures(1);
+    unsafe { std::env::set_var("STIM_SERVER_BASE_URL", &stim_server_base_url) };
+    unsafe { std::env::set_var("SANTI_BASE_URL", &santi_base_url) };
+    let handle = spawn_local_controller(Some("test-transcript-retry")).unwrap();
+    let snapshot = handle.snapshot();
+    let address = snapshot
+        .http_base_url
+        .unwrap()
+        .trim_start_matches("http://")
+        .to_string();
+
+    let mut response = String::new();
+
+    for _ in 0..20 {
+        match TcpStream::connect(&address) {
+            Ok(mut stream) => {
+                let request = format!(
+                    "GET /api/v1/conversations/conv-1/messages HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\n\r\n"
+                );
+                stream.write_all(request.as_bytes()).unwrap();
+                stream.read_to_string(&mut response).unwrap();
+                break;
+            }
+            Err(_) => thread::sleep(Duration::from_millis(50)),
+        }
+    }
+
+    assert!(response.contains("200 OK"));
+    assert!(response.contains("hello from persisted transcript"));
+    assert!(response.contains("hello from mock santi"));
+    unsafe { std::env::remove_var("STIM_SERVER_BASE_URL") };
+    unsafe { std::env::remove_var("SANTI_BASE_URL") };
+}
+
+#[test]
+fn spawned_controller_maps_persistent_santi_transcript_not_found() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let stim_server_base_url = spawn_test_stim_server();
+    let santi_base_url =
+        spawn_test_santi_server_with_transient_transcript_status(100, StatusCode::NOT_FOUND);
+    unsafe { std::env::set_var("STIM_SERVER_BASE_URL", &stim_server_base_url) };
+    unsafe { std::env::set_var("SANTI_BASE_URL", &santi_base_url) };
+    let handle = spawn_local_controller(Some("test-transcript-not-found")).unwrap();
+    let snapshot = handle.snapshot();
+    let address = snapshot
+        .http_base_url
+        .unwrap()
+        .trim_start_matches("http://")
+        .to_string();
+
+    let mut response = String::new();
+
+    for _ in 0..20 {
+        match TcpStream::connect(&address) {
+            Ok(mut stream) => {
+                let request = format!(
+                    "GET /api/v1/conversations/missing/messages HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\n\r\n"
+                );
+                stream.write_all(request.as_bytes()).unwrap();
+                stream.read_to_string(&mut response).unwrap();
+                break;
+            }
+            Err(_) => thread::sleep(Duration::from_millis(50)),
+        }
+    }
+
+    assert!(response.contains("404 Not Found"));
+    assert!(response.contains("fetch status failed: HTTP 404 Not Found"));
+    unsafe { std::env::remove_var("STIM_SERVER_BASE_URL") };
+    unsafe { std::env::remove_var("SANTI_BASE_URL") };
+}
+
+#[test]
+fn santi_transcript_fetch_returns_retry_metadata() {
+    let santi_base_url = spawn_test_santi_server_with_transcript_failures(1);
+
+    let result =
+        super::transcript::fetch_santi_conversation_messages(&santi_base_url, "conv-1").unwrap();
+
+    assert_eq!(result.metadata.attempts, 2);
+    assert_eq!(result.metadata.retries, 1);
+    assert_eq!(result.metadata.last_status, Some(200));
+    assert_eq!(result.payload.messages.len(), 2);
+}
+
+#[test]
+fn santi_transcript_fetch_retries_initial_not_found_projection_gap() {
+    let santi_base_url =
+        spawn_test_santi_server_with_transient_transcript_status(1, StatusCode::NOT_FOUND);
+
+    let result =
+        super::transcript::fetch_santi_conversation_messages(&santi_base_url, "conv-1").unwrap();
+
+    assert_eq!(result.metadata.attempts, 2);
+    assert_eq!(result.metadata.retries, 1);
+    assert_eq!(result.metadata.last_status, Some(200));
+    assert_eq!(result.payload.messages.len(), 2);
+}
+
+#[test]
+fn fetch_retry_is_disabled_by_default() {
+    let santi_base_url = spawn_test_santi_server_with_transcript_failures(1);
+    let result = crate::fetch::FetchClient::new(&santi_base_url)
+        .get_json::<super::types::SantiSessionMessagesResponse>(
+        "/api/v1/sessions/conv-1/messages",
+        crate::fetch::FetchRequestOptions::default(),
+    );
+
+    let error = result.unwrap_err();
+
+    assert_eq!(error.metadata.attempts, 1);
+    assert_eq!(error.metadata.retries, 0);
+    assert_eq!(error.metadata.last_status, Some(502));
+}
+
+#[test]
+fn fetch_retry_supports_custom_decision_closure() {
+    let santi_base_url = spawn_test_santi_server_with_transcript_failures(1);
+    let result = crate::fetch::FetchClient::new(&santi_base_url)
+        .get_json::<super::types::SantiSessionMessagesResponse>(
+            "/api/v1/sessions/conv-1/messages",
+            crate::fetch::FetchRequestOptions::default().with_retry(
+                crate::fetch::FetchRetry::custom(
+                    crate::fetch::FetchRetryPolicy::new(2, 0, 0),
+                    |context| {
+                        if context.attempt == 1
+                            && context.method == reqwest::Method::GET
+                            && context.path.ends_with("/messages")
+                            && context.status == Some(502)
+                        {
+                            crate::fetch::FetchRetryDecision::RetryAfter(Duration::from_millis(0))
+                        } else {
+                            crate::fetch::FetchRetryDecision::Fail
+                        }
+                    },
+                ),
+            ),
+        )
+        .unwrap();
+
+    assert_eq!(result.metadata.attempts, 2);
+    assert_eq!(result.metadata.retries, 1);
+    assert_eq!(result.payload.messages.len(), 2);
+}
+
+#[test]
+fn fetch_not_found_payload_is_explicit_option() {
+    let santi_base_url = spawn_test_santi_server();
+    let result = crate::fetch::FetchClient::new(&santi_base_url)
+        .get_json::<serde_json::Value>(
+            "/api/v1/missing",
+            crate::fetch::FetchRequestOptions::default()
+                .with_not_found_payload(|| serde_json::json!({ "state": "missing" })),
+        )
+        .unwrap();
+
+    assert_eq!(result.metadata.attempts, 1);
+    assert_eq!(result.metadata.retries, 0);
+    assert_eq!(result.metadata.last_status, Some(404));
+    assert_eq!(result.payload, serde_json::json!({ "state": "missing" }));
+}
+
+#[test]
+fn fetch_options_are_request_local_overrides() {
+    let santi_base_url = spawn_test_santi_server();
+    let result = crate::fetch::FetchClient::new(&santi_base_url)
+        .get_json::<String>(
+            "/api/v1/health",
+            crate::fetch::FetchRequestOptions::default()
+                .with_timeout(Duration::from_secs(5))
+                .with_header(
+                    reqwest::header::HeaderName::from_static("x-stim-fetch-test"),
+                    reqwest::header::HeaderValue::from_static("1"),
+                )
+                .with_query_param("probe", "1")
+                .with_status_policy(crate::fetch::FetchStatusPolicy::custom(|status| {
+                    status == reqwest::StatusCode::OK
+                })),
+        )
+        .unwrap();
+
+    assert_eq!(result.payload, "ok");
+    assert_eq!(result.metadata.attempts, 1);
+    assert_eq!(result.metadata.last_status, Some(200));
 }
 
 #[test]
@@ -280,6 +531,13 @@ fn spawned_controller_serves_message_operation_events_over_websocket() {
     );
     assert_eq!(snapshot.user_message_count, 1);
     assert_eq!(snapshot.assistant_message_count, 1);
+    assert_eq!(snapshot.tool_activity_count, 1);
+    assert_eq!(snapshot.tool_result_count, 1);
+    assert_eq!(snapshot.tool_activities[0].tool_name, "bash");
+    assert_eq!(
+        snapshot.tool_activities[0].output_summary.as_deref(),
+        Some("bash exit 0; stdout 5 chars; stderr 0 chars")
+    );
     unsafe { std::env::remove_var("STIM_SERVER_BASE_URL") };
     unsafe { std::env::remove_var("SANTI_BASE_URL") };
 }

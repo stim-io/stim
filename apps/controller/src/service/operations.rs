@@ -10,17 +10,18 @@ use axum::{
 use stim_shared::message_operation::{
     ControllerOperationCommand, ControllerOperationCommandEnvelope, ControllerOperationEvent,
     ControllerOperationMessage, ControllerOperationSnapshot, ControllerOperationStage,
-    ControllerOperationStatus, CONTROLLER_MESSAGE_OPERATION_SCHEMA_VERSION,
+    ControllerOperationStatus, ControllerOperationToolActivity,
+    CONTROLLER_MESSAGE_OPERATION_SCHEMA_VERSION,
 };
 
 use crate::controller;
 
 use super::{
     clock::timestamp_now,
-    transcript::fetch_santi_conversation_messages,
+    transcript::{fetch_santi_conversation_messages, fetch_santi_conversation_tool_activities},
     types::{
-        map_santi_transcript, ControllerHttpState, ConversationTranscriptResponse,
-        MessageContentResponse, MessagePartResponse,
+        map_santi_transcript, ControllerHttpState, ConversationToolActivityResponse,
+        ConversationTranscriptResponse, MessageContentResponse, MessagePartResponse,
     },
 };
 
@@ -52,13 +53,15 @@ async fn handle_controller_operation_socket(state: ControllerHttpState, mut sock
                         &command,
                         ControllerOperationStage::OperationFailed,
                         ControllerOperationStatus::Failed,
-                        None,
-                        None,
-                        None,
-                        Some(format!(
-                            "controller operation command decode failed: {error}"
-                        )),
-                        None,
+                        OperationEventPayload {
+                            causation_id: None,
+                            conversation_id: None,
+                            message_id: None,
+                            detail: Some(format!(
+                                "controller operation command decode failed: {error}"
+                            )),
+                            snapshot: None,
+                        },
                     ),
                 )
                 .await;
@@ -73,14 +76,16 @@ async fn handle_controller_operation_socket(state: ControllerHttpState, mut sock
                     &command,
                     ControllerOperationStage::OperationFailed,
                     ControllerOperationStatus::Failed,
-                    None,
-                    None,
-                    None,
-                    Some(format!(
-                        "unsupported controller operation schema_version {}",
-                        command.schema_version
-                    )),
-                    None,
+                    OperationEventPayload {
+                        causation_id: None,
+                        conversation_id: None,
+                        message_id: None,
+                        detail: Some(format!(
+                            "unsupported controller operation schema_version {}",
+                            command.schema_version
+                        )),
+                        snapshot: None,
+                    },
                 ),
             )
             .await;
@@ -135,11 +140,13 @@ async fn handle_send_text_operation(
                 command,
                 ControllerOperationStage::CommandAccepted,
                 ControllerOperationStatus::Accepted,
-                None,
-                conversation_id.clone(),
-                None,
-                Some("controller accepted send-text command".into()),
-                None,
+                OperationEventPayload {
+                    causation_id: None,
+                    conversation_id: conversation_id.clone(),
+                    message_id: None,
+                    detail: Some("controller accepted send-text command".into()),
+                    snapshot: None,
+                },
             ),
         )
         .await?,
@@ -152,11 +159,13 @@ async fn handle_send_text_operation(
                 command,
                 ControllerOperationStage::DeliveryStarted,
                 ControllerOperationStatus::Running,
-                causation_id,
-                conversation_id.clone(),
-                None,
-                Some(format!("sending text to {target_endpoint_id}")),
-                None,
+                OperationEventPayload {
+                    causation_id,
+                    conversation_id: conversation_id.clone(),
+                    message_id: None,
+                    detail: Some(format!("sending text to {target_endpoint_id}")),
+                    snapshot: None,
+                },
             ),
         )
         .await?,
@@ -173,11 +182,13 @@ async fn handle_send_text_operation(
                         command,
                         ControllerOperationStage::ConversationSelected,
                         ControllerOperationStatus::Completed,
-                        causation_id,
-                        Some(conversation_id.clone()),
-                        Some(message_id.clone()),
-                        Some("controller selected conversation".into()),
-                        None,
+                        OperationEventPayload {
+                            causation_id,
+                            conversation_id: Some(conversation_id.clone()),
+                            message_id: Some(message_id.clone()),
+                            detail: Some("controller selected conversation".into()),
+                            snapshot: None,
+                        },
                     ),
                 )
                 .await?,
@@ -189,14 +200,16 @@ async fn handle_send_text_operation(
                         command,
                         ControllerOperationStage::DeliveryCompleted,
                         ControllerOperationStatus::Completed,
-                        causation_id,
-                        Some(conversation_id.clone()),
-                        Some(message_id.clone()),
-                        Some(format!(
-                            "roundtrip completed with {} response source",
-                            summary.response_text_source
-                        )),
-                        None,
+                        OperationEventPayload {
+                            causation_id,
+                            conversation_id: Some(conversation_id.clone()),
+                            message_id: Some(message_id.clone()),
+                            detail: Some(format!(
+                                "roundtrip completed with {} response source",
+                                summary.response_text_source
+                            )),
+                            snapshot: None,
+                        },
                     ),
                 )
                 .await?,
@@ -216,11 +229,13 @@ async fn handle_send_text_operation(
                         command,
                         ControllerOperationStage::TranscriptLoaded,
                         ControllerOperationStatus::Completed,
-                        causation_id,
-                        Some(conversation_id.clone()),
-                        Some(message_id.clone()),
-                        Some("controller loaded persisted transcript snapshot".into()),
-                        Some(snapshot.clone()),
+                        OperationEventPayload {
+                            causation_id,
+                            conversation_id: Some(conversation_id.clone()),
+                            message_id: Some(message_id.clone()),
+                            detail: Some("controller loaded persisted transcript snapshot".into()),
+                            snapshot: Some(snapshot.clone()),
+                        },
                     ),
                 )
                 .await?,
@@ -231,11 +246,13 @@ async fn handle_send_text_operation(
                     command,
                     ControllerOperationStage::OperationCompleted,
                     ControllerOperationStatus::Completed,
-                    causation_id,
-                    Some(conversation_id),
-                    Some(message_id),
-                    Some("send-text operation completed".into()),
-                    Some(snapshot),
+                    OperationEventPayload {
+                        causation_id,
+                        conversation_id: Some(conversation_id),
+                        message_id: Some(message_id),
+                        detail: Some("send-text operation completed".into()),
+                        snapshot: Some(snapshot),
+                    },
                 ),
             )
             .await?;
@@ -247,11 +264,13 @@ async fn handle_send_text_operation(
                     command,
                     ControllerOperationStage::OperationFailed,
                     ControllerOperationStatus::Failed,
-                    causation_id,
-                    None,
-                    None,
-                    Some(error),
-                    None,
+                    OperationEventPayload {
+                        causation_id,
+                        conversation_id: None,
+                        message_id: None,
+                        detail: Some(error),
+                        snapshot: None,
+                    },
                 ),
             )
             .await?;
@@ -274,11 +293,13 @@ async fn handle_load_transcript_operation(
                 command,
                 ControllerOperationStage::CommandAccepted,
                 ControllerOperationStatus::Accepted,
-                None,
-                Some(conversation_id.clone()),
-                None,
-                Some("controller accepted load-transcript command".into()),
-                None,
+                OperationEventPayload {
+                    causation_id: None,
+                    conversation_id: Some(conversation_id.clone()),
+                    message_id: None,
+                    detail: Some("controller accepted load-transcript command".into()),
+                    snapshot: None,
+                },
             ),
         )
         .await?,
@@ -293,11 +314,13 @@ async fn handle_load_transcript_operation(
                         command,
                         ControllerOperationStage::TranscriptLoaded,
                         ControllerOperationStatus::Completed,
-                        causation_id,
-                        Some(conversation_id.clone()),
-                        None,
-                        Some("controller loaded persisted transcript snapshot".into()),
-                        Some(snapshot.clone()),
+                        OperationEventPayload {
+                            causation_id,
+                            conversation_id: Some(conversation_id.clone()),
+                            message_id: None,
+                            detail: Some("controller loaded persisted transcript snapshot".into()),
+                            snapshot: Some(snapshot.clone()),
+                        },
                     ),
                 )
                 .await?,
@@ -308,11 +331,13 @@ async fn handle_load_transcript_operation(
                     command,
                     ControllerOperationStage::OperationCompleted,
                     ControllerOperationStatus::Completed,
-                    causation_id,
-                    Some(conversation_id),
-                    None,
-                    Some("load-transcript operation completed".into()),
-                    Some(snapshot),
+                    OperationEventPayload {
+                        causation_id,
+                        conversation_id: Some(conversation_id),
+                        message_id: None,
+                        detail: Some("load-transcript operation completed".into()),
+                        snapshot: Some(snapshot),
+                    },
                 ),
             )
             .await?;
@@ -324,11 +349,13 @@ async fn handle_load_transcript_operation(
                     command,
                     ControllerOperationStage::OperationFailed,
                     ControllerOperationStatus::Failed,
-                    causation_id,
-                    Some(conversation_id),
-                    None,
-                    Some(error),
-                    None,
+                    OperationEventPayload {
+                        causation_id,
+                        conversation_id: Some(conversation_id),
+                        message_id: None,
+                        detail: Some(error),
+                        snapshot: None,
+                    },
                 ),
             )
             .await?;
@@ -391,7 +418,17 @@ async fn load_operation_snapshot(
     .map_err(|error| format!("controller transcript fetch join failed: {error}"))?
     .map_err(|error| format!("controller transcript fetch failed: {error}"))?;
 
-    let transcript = map_santi_transcript(conversation_id, messages);
+    let santi_base_url = state.santi_base_url.clone();
+    let conversation_id_for_fetch = conversation_id.clone();
+    let tool_activities = tokio::task::spawn_blocking(move || {
+        fetch_santi_conversation_tool_activities(&santi_base_url, &conversation_id_for_fetch)
+    })
+    .await
+    .map_err(|error| format!("controller tool activity fetch join failed: {error}"))?
+    .map_err(|error| format!("controller tool activity fetch failed: {error}"))?;
+
+    let transcript =
+        map_santi_transcript(conversation_id, messages.payload, tool_activities.payload);
     Ok(operation_snapshot(
         transcript,
         final_sent_text,
@@ -413,29 +450,33 @@ async fn send_operation_event(
     Ok(event_id)
 }
 
-fn operation_event(
-    command: &ControllerOperationCommandEnvelope,
-    stage: ControllerOperationStage,
-    status: ControllerOperationStatus,
+struct OperationEventPayload {
     causation_id: Option<String>,
     conversation_id: Option<String>,
     message_id: Option<String>,
     detail: Option<String>,
     snapshot: Option<ControllerOperationSnapshot>,
+}
+
+fn operation_event(
+    command: &ControllerOperationCommandEnvelope,
+    stage: ControllerOperationStage,
+    status: ControllerOperationStatus,
+    payload: OperationEventPayload,
 ) -> ControllerOperationEvent {
     ControllerOperationEvent {
         schema_version: CONTROLLER_MESSAGE_OPERATION_SCHEMA_VERSION,
         event_id: next_operation_event_id(),
         operation_id: command.operation_id.clone(),
         correlation_id: command.correlation_id.clone(),
-        causation_id,
-        conversation_id,
-        message_id,
+        causation_id: payload.causation_id,
+        conversation_id: payload.conversation_id,
+        message_id: payload.message_id,
         stage,
         status,
         occurred_at: timestamp_now(),
-        detail,
-        snapshot,
+        detail: payload.detail,
+        snapshot: payload.snapshot,
     }
 }
 
@@ -479,6 +520,11 @@ fn operation_snapshot(
         .rev()
         .find(|message| message.role == "assistant")
         .map(|message| message.text.clone());
+    let tool_activities = transcript
+        .tool_activities
+        .iter()
+        .map(map_tool_activity)
+        .collect::<Vec<_>>();
 
     ControllerOperationSnapshot {
         conversation_id: transcript.conversation_id,
@@ -491,11 +537,35 @@ fn operation_snapshot(
             .iter()
             .filter(|message| message.role == "assistant")
             .count(),
+        tool_activity_count: tool_activities.len(),
+        tool_result_count: tool_activities
+            .iter()
+            .filter(|activity| activity.tool_result_id.is_some())
+            .count(),
         last_user_text,
         last_assistant_text,
         final_sent_text,
         response_text_source,
         messages,
+        tool_activities,
+    }
+}
+
+fn map_tool_activity(
+    activity: &ConversationToolActivityResponse,
+) -> ControllerOperationToolActivity {
+    ControllerOperationToolActivity {
+        tool_call_id: activity.tool_call_id.clone(),
+        tool_name: activity.tool_name.clone(),
+        tool_call_seq: activity.tool_call_seq,
+        result_state: activity.result_state.clone(),
+        tool_result_id: activity.tool_result_id.clone(),
+        tool_result_seq: activity.tool_result_seq,
+        exit_code: activity.exit_code,
+        duration_ms: activity.duration_ms,
+        stdout_chars: activity.stdout_chars,
+        stderr_chars: activity.stderr_chars,
+        output_summary: activity.output_summary.clone(),
     }
 }
 

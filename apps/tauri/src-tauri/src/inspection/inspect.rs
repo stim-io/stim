@@ -22,7 +22,9 @@ pub fn inspect_main_window<R: Runtime>(app: &AppHandle<R>) -> InspectResult {
         }
     };
 
-    InspectResult::Success { snapshot }
+    InspectResult::Success {
+        snapshot: Box::new(snapshot),
+    }
 }
 
 fn build_inspect_snapshot<R: Runtime>(

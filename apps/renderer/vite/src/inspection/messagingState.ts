@@ -10,6 +10,8 @@ export type RendererMessagingStateSnapshot = {
   response_text: string | null;
   response_source: string | null;
   final_sent_text: string | null;
+  tool_activity_count: number;
+  latest_tool_activity_summary: string | null;
   assistant_response_content_kind: string | null;
   assistant_fragment_present: boolean;
   error_message: string | null;
@@ -44,6 +46,10 @@ export function readRendererMessagingState(): RendererMessagingStateSnapshot {
     response_text: textContentFor('[data-probe="last-response-text"]'),
     response_source: textContentFor('[data-probe="last-response-source"]'),
     final_sent_text: textContentFor('[data-probe="last-final-sent-text"]'),
+    tool_activity_count: toolActivityCount(),
+    latest_tool_activity_summary: textContentFor(
+      '[data-probe="tool-activity-summary"]',
+    ),
     assistant_response_content_kind: lastAssistantResponseContentKind(),
     assistant_fragment_present: lastAssistantFragmentPresent(),
     error_message: textContentFor('[data-probe="last-error-message"]'),
@@ -53,6 +59,11 @@ export function readRendererMessagingState(): RendererMessagingStateSnapshot {
 
 function conversationIdText(): string | null {
   return textContentFor('[data-probe="active-conversation-id"]');
+}
+
+function toolActivityCount(): number {
+  return document.querySelectorAll('[data-probe="tool-activity-summary"]')
+    .length;
 }
 
 function chatBubbles() {

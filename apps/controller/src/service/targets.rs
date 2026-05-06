@@ -18,6 +18,9 @@ impl TargetResolution {
             "compose-default" => {
                 format!("compose-default via {} -> {}", self.env_var, base_url)
             }
+            "local-santi-default" => {
+                format!("local-santi-default via {} -> {}", self.env_var, base_url)
+            }
             _ => format!("{} -> {}", self.source, base_url),
         }
     }
@@ -25,7 +28,7 @@ impl TargetResolution {
 
 pub(crate) fn resolve_stim_server_base_url() -> Result<(String, TargetResolution), String> {
     if let Ok(base_url) = std::env::var("STIM_SERVER_BASE_URL") {
-        wait_for_health(&base_url)?;
+        wait_for_health("stim-server", &base_url)?;
         return Ok((
             base_url,
             TargetResolution {
@@ -35,7 +38,7 @@ pub(crate) fn resolve_stim_server_base_url() -> Result<(String, TargetResolution
         ));
     }
 
-    if wait_for_health(DEFAULT_COMPOSE_STIM_SERVER_BASE_URL).is_ok() {
+    if wait_for_health("stim-server", DEFAULT_COMPOSE_STIM_SERVER_BASE_URL).is_ok() {
         return Ok((
             DEFAULT_COMPOSE_STIM_SERVER_BASE_URL.into(),
             TargetResolution {
@@ -53,7 +56,7 @@ pub(crate) fn resolve_stim_server_base_url() -> Result<(String, TargetResolution
 
 pub(crate) fn resolve_santi_base_url() -> Result<(String, TargetResolution), String> {
     if let Ok(base_url) = std::env::var("SANTI_BASE_URL") {
-        wait_for_health(&base_url)?;
+        wait_for_health("santi", &base_url)?;
         return Ok((
             base_url,
             TargetResolution {
@@ -63,23 +66,23 @@ pub(crate) fn resolve_santi_base_url() -> Result<(String, TargetResolution), Str
         ));
     }
 
-    if wait_for_health(DEFAULT_COMPOSE_SANTI_BASE_URL).is_ok() {
+    if wait_for_health("santi", DEFAULT_COMPOSE_SANTI_BASE_URL).is_ok() {
         return Ok((
             DEFAULT_COMPOSE_SANTI_BASE_URL.into(),
             TargetResolution {
-                source: "compose-default",
+                source: "local-santi-default",
                 env_var: "SANTI_BASE_URL",
             },
         ));
     }
 
     Err(format!(
-        "santi unavailable: set SANTI_BASE_URL or start docker-compose service at {}",
+        "santi unavailable: set SANTI_BASE_URL or run local santi at {} with root `scripts/santi local`",
         DEFAULT_COMPOSE_SANTI_BASE_URL
     ))
 }
 
-fn wait_for_health(base_url: &str) -> Result<(), String> {
+fn wait_for_health(service_name: &str, base_url: &str) -> Result<(), String> {
     let client = reqwest::blocking::Client::new();
 
     for _ in 0..20 {
@@ -89,5 +92,5 @@ fn wait_for_health(base_url: &str) -> Result<(), String> {
         }
     }
 
-    Err("stim-server health never became ready".into())
+    Err(format!("{service_name} health never became ready"))
 }

@@ -104,24 +104,24 @@ pub(super) fn synthetic_response_envelope(
     acknowledgement: &ParsedAcknowledgement,
     reply_handle: Option<&ReplyHandle>,
 ) -> MessageEnvelope {
-    sample_text_envelope(
-        &acknowledgement.ack_envelope_id,
-        &acknowledgement.ack_message_id,
-        &request.conversation_id,
-        &target.node_id,
-        "endpoint-b",
-        &lifecycle_response_preview(request),
-        MessageState::Fixed,
-        MessageOperation::Create,
-        None,
-        acknowledgement.ack_version,
-        None,
-        None,
-        Some(json!({
+    sample_text_envelope(TextEnvelopeSample {
+        envelope_id: &acknowledgement.ack_envelope_id,
+        message_id: &acknowledgement.ack_message_id,
+        conversation_id: &request.conversation_id,
+        sender_node_id: &target.node_id,
+        sender_endpoint_id: "endpoint-b",
+        text: &lifecycle_response_preview(request),
+        state: MessageState::Fixed,
+        operation: MessageOperation::Create,
+        base_version: None,
+        new_version: acknowledgement.ack_version,
+        session_bootstrap: None,
+        patch_merge: None,
+        metadata: Some(json!({
             "response_text_source": "protocol_ack",
             "reply_id": reply_handle.map(|reply| reply.reply_id.clone()),
         })),
-    )
+    })
 }
 
 fn lifecycle_response_preview(request: &MessageEnvelope) -> String {
@@ -170,25 +170,25 @@ pub(super) fn sample_create_envelope(
     text: &str,
     include_bootstrap: bool,
 ) -> MessageEnvelope {
-    sample_text_envelope(
-        &ids.create_envelope_id,
-        &ids.message_id,
-        &ids.conversation_id,
-        "node-a",
-        "endpoint-a",
+    sample_text_envelope(TextEnvelopeSample {
+        envelope_id: &ids.create_envelope_id,
+        message_id: &ids.message_id,
+        conversation_id: &ids.conversation_id,
+        sender_node_id: "node-a",
+        sender_endpoint_id: "endpoint-a",
         text,
-        MessageState::Pending,
-        MessageOperation::Create,
-        None,
-        1,
-        include_bootstrap.then_some(stim_proto::SessionBootstrap {
+        state: MessageState::Pending,
+        operation: MessageOperation::Create,
+        base_version: None,
+        new_version: 1,
+        session_bootstrap: include_bootstrap.then_some(stim_proto::SessionBootstrap {
             participants: vec!["endpoint-a".into(), "endpoint-b".into()],
             created_by: "endpoint-a".into(),
             created_at: "2026-04-14T00:00:00Z".into(),
         }),
-        None,
-        None,
-    )
+        patch_merge: None,
+        metadata: None,
+    })
 }
 
 pub(super) fn sample_patch_envelope(
@@ -196,48 +196,48 @@ pub(super) fn sample_patch_envelope(
     base_version: u64,
     text: &str,
 ) -> MessageEnvelope {
-    sample_text_envelope(
-        &ids.patch_envelope_id,
-        &ids.message_id,
-        &ids.conversation_id,
-        "node-a",
-        "endpoint-a",
+    sample_text_envelope(TextEnvelopeSample {
+        envelope_id: &ids.patch_envelope_id,
+        message_id: &ids.message_id,
+        conversation_id: &ids.conversation_id,
+        sender_node_id: "node-a",
+        sender_endpoint_id: "endpoint-a",
         text,
-        MessageState::Pending,
-        MessageOperation::Patch,
-        Some(base_version),
-        base_version + 1,
-        None,
-        Some(json!({ "text": text })),
-        None,
-    )
+        state: MessageState::Pending,
+        operation: MessageOperation::Patch,
+        base_version: Some(base_version),
+        new_version: base_version + 1,
+        session_bootstrap: None,
+        patch_merge: Some(json!({ "text": text })),
+        metadata: None,
+    })
 }
 
 pub(super) fn sample_fix_envelope(ids: &RoundtripIds, base_version: u64) -> MessageEnvelope {
-    sample_text_envelope(
-        &ids.fix_envelope_id,
-        &ids.message_id,
-        &ids.conversation_id,
-        "node-a",
-        "endpoint-a",
-        "",
-        MessageState::Fixed,
-        MessageOperation::Fix,
-        Some(base_version),
-        base_version + 1,
-        None,
-        None,
-        None,
-    )
+    sample_text_envelope(TextEnvelopeSample {
+        envelope_id: &ids.fix_envelope_id,
+        message_id: &ids.message_id,
+        conversation_id: &ids.conversation_id,
+        sender_node_id: "node-a",
+        sender_endpoint_id: "endpoint-a",
+        text: "",
+        state: MessageState::Fixed,
+        operation: MessageOperation::Fix,
+        base_version: Some(base_version),
+        new_version: base_version + 1,
+        session_bootstrap: None,
+        patch_merge: None,
+        metadata: None,
+    })
 }
 
-fn sample_text_envelope(
-    envelope_id: &str,
-    message_id: &str,
-    conversation_id: &str,
-    sender_node_id: &str,
-    sender_endpoint_id: &str,
-    text: &str,
+struct TextEnvelopeSample<'a> {
+    envelope_id: &'a str,
+    message_id: &'a str,
+    conversation_id: &'a str,
+    sender_node_id: &'a str,
+    sender_endpoint_id: &'a str,
+    text: &'a str,
     state: MessageState,
     operation: MessageOperation,
     base_version: Option<u64>,
@@ -245,7 +245,25 @@ fn sample_text_envelope(
     session_bootstrap: Option<stim_proto::SessionBootstrap>,
     patch_merge: Option<serde_json::Value>,
     metadata: Option<serde_json::Value>,
-) -> MessageEnvelope {
+}
+
+fn sample_text_envelope(sample: TextEnvelopeSample<'_>) -> MessageEnvelope {
+    let TextEnvelopeSample {
+        envelope_id,
+        message_id,
+        conversation_id,
+        sender_node_id,
+        sender_endpoint_id,
+        text,
+        state,
+        operation,
+        base_version,
+        new_version,
+        session_bootstrap,
+        patch_merge,
+        metadata,
+    } = sample;
+
     MessageEnvelope {
         protocol_version: stim_proto::CURRENT_PROTOCOL_VERSION.into(),
         envelope_id: envelope_id.into(),

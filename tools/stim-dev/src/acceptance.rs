@@ -9,6 +9,8 @@ use stim_sidecar::process::StampedProcessCriteria;
 use tungstenite::Message;
 
 const OPERATION_EVENT_READ_TIMEOUT: Duration = Duration::from_secs(60);
+const TOOL_ACTIVITY_ACCEPTANCE_TEXT: &str =
+    "请调用一次 bash 工具执行只读命令 `pwd`，然后用一句话说明工具已完成。";
 
 use crate::{
     clock::{create_request_id, timestamp_now},
@@ -24,12 +26,18 @@ pub(crate) fn accept(args: Vec<String>) -> Result<(), String> {
         [target, leaf, text @ ..] if target == "controller" && leaf == "messaging" => {
             accept_controller_messaging(Some(text.join(" ")))
         }
+        [target, leaf] if target == "controller" && leaf == "tool-activity" => {
+            accept_controller_tool_activity(None)
+        }
+        [target, leaf, text @ ..] if target == "controller" && leaf == "tool-activity" => {
+            accept_controller_tool_activity(Some(text.join(" ")))
+        }
         [] | [_] => Err(
-            "accept requires '<target> <leaf>'; supported leaf: controller messaging [text]"
+            "accept requires '<target> <leaf>'; supported leaves: controller messaging [text], controller tool-activity [text]"
                 .into(),
         ),
         [target, ..] => Err(format!(
-            "unsupported accept leaf under target '{target}'; supported leaf: controller messaging [text]"
+            "unsupported accept leaf under target '{target}'; supported leaves: controller messaging [text], controller tool-activity [text]"
         )),
     }
 }
@@ -65,6 +73,63 @@ fn accept_controller_messaging(text: Option<String>) -> Result<(), String> {
         .map_err(|error| format!("failed to serialize controller acceptance report: {error}"))?;
     println!("{output}");
     Ok(())
+}
+
+fn accept_controller_tool_activity(text: Option<String>) -> Result<(), String> {
+    let namespace = current_namespace();
+    let text = text
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| TOOL_ACTIVITY_ACCEPTANCE_TEXT.to_string());
+    let result = run_controller_tool_activity_acceptance(&namespace, &text);
+    let final_stop = stop_controller_processes(&namespace);
+
+    let report = match (result, final_stop) {
+        (Ok(mut report), Ok(stop)) => {
+            report["final_controller_stop"] = stop_result_json(&stop);
+            report
+        }
+        (Err(error), Ok(_)) => return Err(error),
+        (Ok(_), Err(error)) => {
+            return Err(format!("controller tool activity cleanup failed: {error}"))
+        }
+        (Err(error), Err(cleanup_error)) => {
+            return Err(format!(
+                "{error}; controller tool activity cleanup also failed: {cleanup_error}"
+            ));
+        }
+    };
+
+    let output = serde_json::to_string_pretty(&report)
+        .map_err(|error| format!("failed to serialize controller tool activity report: {error}"))?;
+    println!("{output}");
+    Ok(())
+}
+
+fn run_controller_tool_activity_acceptance(
+    namespace: &str,
+    text: &str,
+) -> Result<serde_json::Value, String> {
+    let initial_stop = stop_controller_processes(namespace)?;
+    let controller = start_controller_for_acceptance(namespace)?;
+    let (send_events, send_snapshot) = execute_send_text(&controller.endpoint, text, None, "send")?;
+    assert_snapshot_contains_user_texts(&send_snapshot, &[text], "send")?;
+    assert_snapshot_message_counts(&send_snapshot, 1, 1, "send")?;
+    assert_snapshot_has_tool_activity(&send_snapshot, "send")?;
+
+    Ok(serde_json::json!({
+        "namespace": namespace,
+        "command": "stim-dev accept controller tool-activity",
+        "state": "passed",
+        "submitted_text": text,
+        "conversation_id": send_snapshot.conversation_id,
+        "initial_controller_stop": stop_result_json(&initial_stop),
+        "controller": controller,
+        "send": {
+            "events": send_events,
+            "snapshot": send_snapshot,
+        },
+    }))
 }
 
 fn run_controller_messaging_acceptance(
@@ -391,6 +456,31 @@ fn assert_snapshot_message_counts(
     ))
 }
 
+fn assert_snapshot_has_tool_activity(
+    snapshot: &ControllerOperationSnapshot,
+    label: &str,
+) -> Result<(), String> {
+    if snapshot.tool_activity_count == 0 || snapshot.tool_activities.is_empty() {
+        return Err(format!(
+            "{label} snapshot did not expose tool activity in conversation {}",
+            snapshot.conversation_id
+        ));
+    }
+
+    if snapshot
+        .tool_activities
+        .iter()
+        .any(|activity| activity.tool_result_id.is_some() && activity.result_state == "completed")
+    {
+        return Ok(());
+    }
+
+    Err(format!(
+        "{label} snapshot exposed tool calls but no completed tool result in conversation {}",
+        snapshot.conversation_id
+    ))
+}
+
 fn assert_last_assistant_contains(
     snapshot: &ControllerOperationSnapshot,
     expected_text: &str,
@@ -502,6 +592,8 @@ mod tests {
             message_count: 4,
             user_message_count: 2,
             assistant_message_count: 2,
+            tool_activity_count: 0,
+            tool_result_count: 0,
             last_user_text: Some("second".into()),
             last_assistant_text: Some("the prior text was first".into()),
             final_sent_text: Some("second".into()),
@@ -528,6 +620,7 @@ mod tests {
                     text: "the prior text was first".into(),
                 },
             ],
+            tool_activities: vec![],
         };
 
         assert!(assert_snapshot_contains_user_texts(

@@ -14,6 +14,7 @@ It should make `stim-dev` and the renderer able to observe a complete operation 
 - delivery or runtime dependency invoked
 - assistant response observed
 - transcript/projection ready
+- runtime tool activity observed when `santi` reports tool calls/results for the conversation
 - failure stage and diagnostic detail reported
 
 This layer is for local app-loop coverage and acceptance. It is not the durable product IM message ledger.
@@ -25,6 +26,8 @@ This layer is for local app-loop coverage and acceptance. It is not the durable 
 `stim-dev` may drive it directly for machine-gated acceptance. The renderer may subscribe to it for product projection. The Tauri host may publish or discover the controller endpoint, but Tauri IPC must not become the business transport for these events.
 
 `stim-server` product-ledger events remain a separate layer owned by `stim-server`. `santi` runtime/provider events remain a separate layer owned by `santi`. Controller events may correlate to both, but they do not replace either.
+
+When controller snapshots include `santi` tool activity, they are inspection summaries of the `santi` runtime ledger view. They are not product message rows and should not expose full tool stdout/stderr or raw arguments by default.
 
 ## Transport rule
 
@@ -130,5 +133,6 @@ The controller event layer is healthy when a local operation can be driven and d
 1. `stim-dev` sends an operation command over the controller WebSocket.
 2. Controller events identify each stage and failure point with correlation ids.
 3. Controller snapshots prove the expected local projection after restart/reload.
-4. Renderer smoke proves only that the UI projects the same operation state.
-5. Product-ledger ownership remains available for `stim-server` without inheriting controller debug semantics.
+4. Controller snapshots expose minimal runtime tool activity summaries when a turn used tools.
+5. Renderer smoke proves only that the UI projects the same operation state.
+6. Product-ledger ownership remains available for `stim-server` without inheriting controller debug semantics.

@@ -67,6 +67,7 @@ pub struct MessageContentResponse {
 pub struct ConversationTranscriptResponse {
     pub conversation_id: String,
     pub messages: Vec<ConversationMessageResponse>,
+    pub tool_activities: Vec<ConversationToolActivityResponse>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -78,6 +79,21 @@ pub struct ConversationMessageResponse {
     pub content: MessageContentResponse,
     pub delivery_state: Option<String>,
     pub meta_label: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConversationToolActivityResponse {
+    pub tool_call_id: String,
+    pub tool_name: String,
+    pub tool_call_seq: i64,
+    pub result_state: String,
+    pub tool_result_id: Option<String>,
+    pub tool_result_seq: Option<i64>,
+    pub exit_code: Option<i64>,
+    pub duration_ms: Option<u64>,
+    pub stdout_chars: Option<u64>,
+    pub stderr_chars: Option<u64>,
+    pub output_summary: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -130,6 +146,19 @@ pub(crate) struct SantiSessionMessagesResponse {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub(crate) struct SantiSessionToolActivitiesResponse {
+    pub(crate) tool_activities: Vec<SantiSessionToolActivityResponse>,
+}
+
+impl SantiSessionToolActivitiesResponse {
+    pub(crate) fn empty() -> Self {
+        Self {
+            tool_activities: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct SantiSessionMessageResponse {
     pub(crate) id: String,
     pub(crate) actor_type: String,
@@ -138,6 +167,21 @@ pub(crate) struct SantiSessionMessageResponse {
     pub(crate) content_text: String,
     pub(crate) state: String,
     pub(crate) created_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct SantiSessionToolActivityResponse {
+    pub(crate) tool_call_id: String,
+    pub(crate) tool_name: String,
+    pub(crate) tool_call_seq: i64,
+    pub(crate) result_state: String,
+    pub(crate) tool_result_id: Option<String>,
+    pub(crate) tool_result_seq: Option<i64>,
+    pub(crate) exit_code: Option<i64>,
+    pub(crate) duration_ms: Option<u64>,
+    pub(crate) stdout_chars: Option<u64>,
+    pub(crate) stderr_chars: Option<u64>,
+    pub(crate) output_summary: Option<String>,
 }
 
 pub(crate) fn map_message_content(content: &MessageContent) -> MessageContentResponse {
@@ -178,6 +222,7 @@ pub(crate) fn map_message_content(content: &MessageContent) -> MessageContentRes
 pub(crate) fn map_santi_transcript(
     conversation_id: String,
     messages: SantiSessionMessagesResponse,
+    tool_activities: SantiSessionToolActivitiesResponse,
 ) -> ConversationTranscriptResponse {
     ConversationTranscriptResponse {
         conversation_id,
@@ -185,6 +230,11 @@ pub(crate) fn map_santi_transcript(
             .messages
             .into_iter()
             .map(map_santi_message)
+            .collect(),
+        tool_activities: tool_activities
+            .tool_activities
+            .into_iter()
+            .map(map_santi_tool_activity)
             .collect(),
     }
 }
@@ -214,5 +264,23 @@ fn map_santi_message(message: SantiSessionMessageResponse) -> ConversationMessag
         },
         delivery_state: (role == "user").then(|| "sent".to_string()),
         meta_label: Some(format!("{} · {}", message.state, message.created_at)),
+    }
+}
+
+fn map_santi_tool_activity(
+    tool_activity: SantiSessionToolActivityResponse,
+) -> ConversationToolActivityResponse {
+    ConversationToolActivityResponse {
+        tool_call_id: tool_activity.tool_call_id,
+        tool_name: tool_activity.tool_name,
+        tool_call_seq: tool_activity.tool_call_seq,
+        result_state: tool_activity.result_state,
+        tool_result_id: tool_activity.tool_result_id,
+        tool_result_seq: tool_activity.tool_result_seq,
+        exit_code: tool_activity.exit_code,
+        duration_ms: tool_activity.duration_ms,
+        stdout_chars: tool_activity.stdout_chars,
+        stderr_chars: tool_activity.stderr_chars,
+        output_summary: tool_activity.output_summary,
     }
 }
