@@ -78,6 +78,10 @@ jobs:
         working-directory: stim-packages
         run: pnpm -C packages/components build
 
+      - name: Build stim client package
+        working-directory: stim-packages
+        run: pnpm -C packages/client build
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
