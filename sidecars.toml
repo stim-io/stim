@@ -1,0 +1,17 @@
+manifest_version = 1
+
+[[sidecars]]
+app = "controller"
+launch = { kind = "cargo", manifest_path = "Cargo.toml", package = "stim-controller", args = ["serve"] }
+ready = { role = "controller-runtime" }
+
+[[sidecars]]
+app = "renderer"
+launch = { kind = "cargo", manifest_path = "Cargo.toml", package = "stim-renderer", args = ["serve", "--dev"] }
+ready = { role = "renderer-delivery" }
+
+[[sidecars]]
+app = "tauri"
+stamp_via_env = true
+cwd = "apps/tauri/src-tauri"
+launch = { kind = "cargo", manifest_path = "apps/tauri/src-tauri/Cargo.toml", cargo_args = ["--no-default-features"] }
