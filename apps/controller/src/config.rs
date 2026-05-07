@@ -26,7 +26,7 @@ impl TargetResolution {
     }
 }
 
-pub(crate) fn resolve_stim_server_base_url() -> Result<(String, TargetResolution), String> {
+pub(crate) fn resolve_server_base_url() -> Result<(String, TargetResolution), String> {
     if let Ok(base_url) = std::env::var("STIM_SERVER_BASE_URL") {
         wait_for_health("stim-server", &base_url)?;
         return Ok((

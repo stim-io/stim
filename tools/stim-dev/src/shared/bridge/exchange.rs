@@ -2,8 +2,8 @@ use std::{fs, path::PathBuf, thread, time::Duration};
 
 use serde::{de::DeserializeOwned, Serialize};
 use stim_shared::inspection::{
-    ControllerRuntimeBridgeResponse, InspectBridgeResponse, RendererActionBridgeResponse,
-    RendererProbeBridgeResponse, ScreenshotBridgeResponse,
+    AgentsRuntimeBridgeResponse, ControllerRuntimeBridgeResponse, InspectBridgeResponse,
+    RendererActionBridgeResponse, RendererProbeBridgeResponse, ScreenshotBridgeResponse,
 };
 
 pub(super) trait BridgeResponseEnvelope {
@@ -52,6 +52,16 @@ impl BridgeResponseEnvelope for InspectBridgeResponse {
 }
 
 impl BridgeResponseEnvelope for ControllerRuntimeBridgeResponse {
+    fn request_id(&self) -> &str {
+        &self.request_id
+    }
+
+    fn requested_at(&self) -> &str {
+        &self.requested_at
+    }
+}
+
+impl BridgeResponseEnvelope for AgentsRuntimeBridgeResponse {
     fn request_id(&self) -> &str {
         &self.request_id
     }

@@ -4,17 +4,20 @@ use tauri::{AppHandle, Manager, Runtime};
 
 use stim_shared::{
     inspection::{
-        ControllerRuntimeBridgeRequest, ControllerRuntimeBridgeResponse, InspectBridgeRequest,
-        InspectBridgeResponse, ScreenshotBridgeRequest, ScreenshotBridgeResponse,
+        AgentsRuntimeBridgeRequest, AgentsRuntimeBridgeResponse, ControllerRuntimeBridgeRequest,
+        ControllerRuntimeBridgeResponse, InspectBridgeRequest, InspectBridgeResponse,
+        ScreenshotBridgeRequest, ScreenshotBridgeResponse,
     },
     paths::{
-        controller_runtime_bridge_requests_dir, controller_runtime_bridge_response_path,
-        controller_runtime_bridge_responses_dir, inspect_bridge_requests_dir,
+        agents_runtime_requests_dir, agents_runtime_response_path, agents_runtime_responses_dir,
+        controller_runtime_requests_dir, controller_runtime_response_path,
+        controller_runtime_responses_dir, inspect_bridge_requests_dir,
         inspect_bridge_response_path, inspect_bridge_responses_dir, screenshot_bridge_requests_dir,
         screenshot_bridge_response_path, screenshot_bridge_responses_dir,
     },
 };
 
+use crate::agents_runtime;
 use crate::controller_runtime;
 use crate::inspection::inspect::inspect_main_window;
 use crate::inspection::renderer_action::poll_renderer_action_requests;
@@ -43,17 +46,66 @@ pub fn start_inspection_bridge<R: Runtime>(app: AppHandle<R>) {
             eprintln!("[stim-tauri][inspection] controller runtime bridge poll failed: {error}");
         }
 
+        if let Err(error) = poll_agents_runtime_requests(&app) {
+            eprintln!("[stim-tauri][inspection] agents runtime bridge poll failed: {error}");
+        }
+
         thread::sleep(Duration::from_millis(500));
     });
 }
 
+fn poll_agents_runtime_requests<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    fs::create_dir_all(agents_runtime_requests_dir())
+        .map_err(|error| format!("failed to create agents runtime request dir: {error}"))?;
+    fs::create_dir_all(agents_runtime_responses_dir())
+        .map_err(|error| format!("failed to create agents runtime response dir: {error}"))?;
+
+    let mut entries = fs::read_dir(agents_runtime_requests_dir())
+        .map_err(|error| format!("failed to read agents runtime request dir: {error}"))?
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
+        .collect::<Vec<_>>();
+
+    entries.sort_by_key(|entry| entry.file_name());
+
+    for entry in entries {
+        let request_path = entry.path();
+        let request_content = fs::read_to_string(&request_path)
+            .map_err(|error| format!("failed to read agents runtime request: {error}"))?;
+        let request = match serde_json::from_str::<AgentsRuntimeBridgeRequest>(&request_content) {
+            Ok(request) => request,
+            Err(_) => {
+                let _ = fs::remove_file(&request_path);
+                continue;
+            }
+        };
+
+        let response = AgentsRuntimeBridgeResponse {
+            request_id: request.request_id.clone(),
+            requested_at: request.requested_at.clone(),
+            responded_at: crate::inspection::screenshot::timestamp_now(),
+            snapshot: agents_runtime::agents_snapshot(app),
+            heartbeat: agents_runtime::agents_heartbeat(app),
+        };
+
+        let response_path = agents_runtime_response_path(&request.request_id);
+        let response_body = serde_json::to_string_pretty(&response)
+            .map_err(|error| format!("failed to serialize agents runtime response: {error}"))?;
+        fs::write(&response_path, format!("{response_body}\n"))
+            .map_err(|error| format!("failed to write agents runtime response: {error}"))?;
+        let _ = fs::remove_file(&request_path);
+    }
+
+    Ok(())
+}
+
 fn poll_controller_runtime_requests<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    fs::create_dir_all(controller_runtime_bridge_requests_dir())
+    fs::create_dir_all(controller_runtime_requests_dir())
         .map_err(|error| format!("failed to create controller runtime request dir: {error}"))?;
-    fs::create_dir_all(controller_runtime_bridge_responses_dir())
+    fs::create_dir_all(controller_runtime_responses_dir())
         .map_err(|error| format!("failed to create controller runtime response dir: {error}"))?;
 
-    let mut entries = fs::read_dir(controller_runtime_bridge_requests_dir())
+    let mut entries = fs::read_dir(controller_runtime_requests_dir())
         .map_err(|error| format!("failed to read controller runtime request dir: {error}"))?
         .filter_map(Result::ok)
         .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
@@ -82,7 +134,7 @@ fn poll_controller_runtime_requests<R: Runtime>(app: &AppHandle<R>) -> Result<()
             heartbeat: controller_runtime::controller_heartbeat(app),
         };
 
-        let response_path = controller_runtime_bridge_response_path(&request.request_id);
+        let response_path = controller_runtime_response_path(&request.request_id);
         let response_body = serde_json::to_string_pretty(&response)
             .map_err(|error| format!("failed to serialize controller runtime response: {error}"))?;
         fs::write(&response_path, format!("{response_body}\n"))

@@ -8,8 +8,7 @@ use stim_shared::inspection::{
     RENDERER_PROBE_REQUEST_EVENT, RENDERER_PROBE_RESPONSE_EVENT,
 };
 use stim_shared::paths::{
-    renderer_probe_bridge_requests_dir, renderer_probe_bridge_response_path,
-    renderer_probe_bridge_responses_dir,
+    renderer_probe_requests_dir, renderer_probe_response_path, renderer_probe_responses_dir,
 };
 
 pub struct RendererProbeResponses(pub Mutex<HashMap<String, RendererProbeEventResponse>>);
@@ -39,12 +38,12 @@ pub fn register_renderer_probe_listener<R: Runtime>(app: &AppHandle<R>) {
 }
 
 pub fn poll_renderer_probe_requests<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    std::fs::create_dir_all(renderer_probe_bridge_requests_dir())
+    std::fs::create_dir_all(renderer_probe_requests_dir())
         .map_err(|error| format!("failed to create probe request dir: {error}"))?;
-    std::fs::create_dir_all(renderer_probe_bridge_responses_dir())
+    std::fs::create_dir_all(renderer_probe_responses_dir())
         .map_err(|error| format!("failed to create probe response dir: {error}"))?;
 
-    let mut entries = std::fs::read_dir(renderer_probe_bridge_requests_dir())
+    let mut entries = std::fs::read_dir(renderer_probe_requests_dir())
         .map_err(|error| format!("failed to read probe request dir: {error}"))?
         .filter_map(Result::ok)
         .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
@@ -79,7 +78,7 @@ pub fn poll_renderer_probe_requests<R: Runtime>(app: &AppHandle<R>) -> Result<()
             result,
         };
 
-        let response_path = renderer_probe_bridge_response_path(&request.request_id);
+        let response_path = renderer_probe_response_path(&request.request_id);
         let response_body = serde_json::to_string_pretty(&response)
             .map_err(|error| format!("failed to serialize probe response: {error}"))?;
         std::fs::write(&response_path, format!("{response_body}\n"))
@@ -124,7 +123,7 @@ fn request_renderer_probe<R: Runtime>(
     }
 }
 
-fn renderer_probe_timeout(probe: &stim_shared::inspection::RendererProbeRequest) -> Duration {
+pub fn renderer_probe_timeout(probe: &stim_shared::inspection::RendererProbeRequest) -> Duration {
     match probe {
         stim_shared::inspection::RendererProbeRequest::LandingBasics => Duration::from_secs(10),
         stim_shared::inspection::RendererProbeRequest::MessagingState => Duration::from_secs(10),
@@ -150,24 +149,5 @@ fn take_response<R: Runtime>(
 fn clear_previous_response<R: Runtime>(app: &AppHandle<R>, request_id: &str) {
     if let Ok(mut responses) = app.state::<RendererProbeResponses>().0.lock() {
         responses.remove(request_id);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::renderer_probe_timeout;
-    use std::time::Duration;
-    use stim_shared::inspection::RendererProbeRequest;
-
-    #[test]
-    fn renderer_inspection_probes_have_short_timeout_budgets() {
-        assert_eq!(
-            renderer_probe_timeout(&RendererProbeRequest::LandingBasics),
-            Duration::from_secs(10)
-        );
-        assert_eq!(
-            renderer_probe_timeout(&RendererProbeRequest::MessagingState),
-            Duration::from_secs(10)
-        );
     }
 }

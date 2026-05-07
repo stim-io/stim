@@ -1,6 +1,6 @@
 import { client, configureStimServerClient } from "@stim-io/client";
 
-export function buildStimServerDiscoveryUrl(endpointId: string) {
+export function buildServerDiscoveryUrl(endpointId: string) {
   configureStimServerClient("http://127.0.0.1:8080");
 
   return client.buildUrl({

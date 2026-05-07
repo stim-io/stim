@@ -6,6 +6,53 @@ export type ClientOptions = {
 
 export type AcknowledgementResult = 'applied' | 'version_conflict' | 'invalid_state_transition' | 'unsupported_content' | 'unknown_conversation' | 'unauthorized_mutation';
 
+export type AgentInstanceHeartbeatRequest = {
+    agent_id: string;
+    delivery_endpoint_id?: string | null;
+    detail?: string | null;
+    endpoint?: string | null;
+    instance_id: string;
+    participant_id?: string | null;
+    status: AgentInstanceStatus;
+};
+
+export type AgentInstanceListResponse = {
+    instances: Array<AgentInstanceRecord>;
+};
+
+export type AgentInstanceRecord = {
+    agent_id: string;
+    agent_kind: string;
+    capabilities: Array<string>;
+    delivery_endpoint_id?: string | null;
+    detail?: string | null;
+    endpoint?: string | null;
+    instance_id: string;
+    label: string;
+    last_event_id: string;
+    last_seen_at: string;
+    participant_id: string;
+    profile?: string | null;
+    registered_at: string;
+    status: AgentInstanceStatus;
+};
+
+export type AgentInstanceRegistrationRequest = {
+    agent_id: string;
+    agent_kind: string;
+    capabilities: Array<string>;
+    delivery_endpoint_id?: string | null;
+    detail?: string | null;
+    endpoint?: string | null;
+    instance_id: string;
+    label: string;
+    participant_id?: string | null;
+    profile?: string | null;
+    status: AgentInstanceStatus;
+};
+
+export type AgentInstanceStatus = 'ready' | 'degraded' | 'unreachable' | 'offline';
+
 export type AssetRefPart = {
     asset_ref: string;
     metadata?: unknown;
@@ -23,6 +70,94 @@ export type CapabilityRefPart = {
     resource_ref?: string | null;
     revision: number;
 };
+
+export type ChatMessageChunkAppendRequest = {
+    causation_id?: string | null;
+    chunk_id?: string | null;
+    correlation_id?: string | null;
+    sequence?: number | null;
+    text: string;
+};
+
+export type ChatMessageChunkRecord = {
+    causation_id?: string | null;
+    chunk_id: string;
+    correlation_id?: string | null;
+    created_at: string;
+    event_id: string;
+    sequence: number;
+    text: string;
+};
+
+export type ChatMessageContentKind = 'text';
+
+export type ChatMessageCreateRequest = {
+    causation_id?: string | null;
+    content_kind: ChatMessageContentKind;
+    correlation_id?: string | null;
+    initial_text?: string | null;
+    message_id?: string | null;
+    message_kind: ChatMessageKind;
+    operation_id?: string | null;
+    participant_id: string;
+    state: ChatMessageState;
+};
+
+export type ChatMessageFinalizeRequest = {
+    causation_id?: string | null;
+    correlation_id?: string | null;
+    failure_detail?: string | null;
+    state: ChatMessageState;
+};
+
+export type ChatMessageKind = 'user' | 'assistant' | 'system' | 'thinking' | 'tool-call' | 'tool-result' | 'compact';
+
+export type ChatMessageListResponse = {
+    messages: Array<ChatMessageRecord>;
+};
+
+export type ChatMessageRecord = {
+    causation_id?: string | null;
+    chunks: Array<ChatMessageChunkRecord>;
+    content_kind: ChatMessageContentKind;
+    correlation_id?: string | null;
+    created_at: string;
+    failure_detail?: string | null;
+    last_event_id: string;
+    message_id: string;
+    message_kind: ChatMessageKind;
+    operation_id?: string | null;
+    participant_id: string;
+    session_id: string;
+    state: ChatMessageState;
+    text: string;
+    updated_at: string;
+    version: number;
+};
+
+export type ChatMessageState = 'pending' | 'streaming' | 'completed' | 'failed' | 'redacted';
+
+export type ChatSessionCreateRequest = {
+    created_by_participant_id?: string | null;
+    session_id?: string | null;
+    title?: string | null;
+};
+
+export type ChatSessionListResponse = {
+    sessions: Array<ChatSessionRecord>;
+};
+
+export type ChatSessionRecord = {
+    created_at: string;
+    created_by_participant_id?: string | null;
+    last_event_id: string;
+    session_id: string;
+    state: ChatSessionState;
+    title?: string | null;
+    updated_at: string;
+};
+
+export type ChatSessionState = 'active' | 'closed';
 
 export type ContentPart = (TextPart & {
     type: 'text';
@@ -154,6 +289,54 @@ export type MutationPayload = {
     operation: 'fix';
 };
 
+export type ParticipantDeliveryTarget = {
+    address?: string | null;
+    carrier_kind?: string | null;
+    endpoint_id: string;
+};
+
+export type ParticipantDeliveryTargetResponse = {
+    delivery_target: ParticipantDeliveryTarget;
+    last_event_id: string;
+    participant_id: string;
+};
+
+export type ParticipantListResponse = {
+    participants: Array<ParticipantRecord>;
+};
+
+export type ParticipantRecord = {
+    capabilities: Array<string>;
+    delivery_target?: null | ParticipantDeliveryTarget;
+    detail?: string | null;
+    display_label: string;
+    last_event_id: string;
+    last_seen_at: string;
+    markers: Array<string>;
+    participant_id: string;
+    registered_at: string;
+    source: ParticipantSource;
+    status: ParticipantStatus;
+};
+
+export type ParticipantSelectionRequest = {
+    participant_id: string;
+};
+
+export type ParticipantSelectionResponse = {
+    last_event_id?: string | null;
+    participant?: null | ParticipantRecord;
+    selected_participant_id?: string | null;
+};
+
+export type ParticipantSource = {
+    agent_id?: string | null;
+    instance_id?: string | null;
+    source_kind: string;
+};
+
+export type ParticipantStatus = 'ready' | 'degraded' | 'unreachable' | 'offline';
+
 export type PatchOperation = {
     index: number;
     merge: unknown;
@@ -186,6 +369,393 @@ export type TextPart = {
     revision: number;
     text: string;
 };
+
+export type ListAgentInstancesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/agents/instances';
+};
+
+export type ListAgentInstancesResponses = {
+    /**
+     * Registered agent instances
+     */
+    200: AgentInstanceListResponse;
+};
+
+export type ListAgentInstancesResponse = ListAgentInstancesResponses[keyof ListAgentInstancesResponses];
+
+export type GetAgentInstanceData = {
+    body?: never;
+    path: {
+        /**
+         * Agent runtime instance identifier
+         */
+        instance_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/instances/{instance_id}';
+};
+
+export type GetAgentInstanceErrors = {
+    /**
+     * Agent instance not registered
+     */
+    404: ErrorResponse;
+};
+
+export type GetAgentInstanceError = GetAgentInstanceErrors[keyof GetAgentInstanceErrors];
+
+export type GetAgentInstanceResponses = {
+    /**
+     * Registered agent instance projection
+     */
+    200: AgentInstanceRecord;
+};
+
+export type GetAgentInstanceResponse = GetAgentInstanceResponses[keyof GetAgentInstanceResponses];
+
+export type RegisterAgentInstanceData = {
+    body: AgentInstanceRegistrationRequest;
+    path: {
+        /**
+         * Agent runtime instance identifier
+         */
+        instance_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/instances/{instance_id}';
+};
+
+export type RegisterAgentInstanceErrors = {
+    /**
+     * Path/body mismatch
+     */
+    400: ErrorResponse;
+};
+
+export type RegisterAgentInstanceError = RegisterAgentInstanceErrors[keyof RegisterAgentInstanceErrors];
+
+export type RegisterAgentInstanceResponses = {
+    /**
+     * Registered agent instance projection
+     */
+    200: AgentInstanceRecord;
+};
+
+export type RegisterAgentInstanceResponse = RegisterAgentInstanceResponses[keyof RegisterAgentInstanceResponses];
+
+export type HeartbeatAgentInstanceData = {
+    body: AgentInstanceHeartbeatRequest;
+    path: {
+        /**
+         * Agent runtime instance identifier
+         */
+        instance_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/instances/{instance_id}/heartbeat';
+};
+
+export type HeartbeatAgentInstanceErrors = {
+    /**
+     * Path/body mismatch
+     */
+    400: ErrorResponse;
+    /**
+     * Agent instance not registered
+     */
+    404: ErrorResponse;
+};
+
+export type HeartbeatAgentInstanceError = HeartbeatAgentInstanceErrors[keyof HeartbeatAgentInstanceErrors];
+
+export type HeartbeatAgentInstanceResponses = {
+    /**
+     * Updated agent instance projection
+     */
+    200: AgentInstanceRecord;
+};
+
+export type HeartbeatAgentInstanceResponse = HeartbeatAgentInstanceResponses[keyof HeartbeatAgentInstanceResponses];
+
+export type GetChatParticipantSelectionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/chat/participant-selection';
+};
+
+export type GetChatParticipantSelectionResponses = {
+    /**
+     * Current chat participant selection
+     */
+    200: ParticipantSelectionResponse;
+};
+
+export type GetChatParticipantSelectionResponse = GetChatParticipantSelectionResponses[keyof GetChatParticipantSelectionResponses];
+
+export type SelectChatParticipantData = {
+    body: ParticipantSelectionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/chat/participant-selection';
+};
+
+export type SelectChatParticipantErrors = {
+    /**
+     * Participant not registered
+     */
+    404: ErrorResponse;
+};
+
+export type SelectChatParticipantError = SelectChatParticipantErrors[keyof SelectChatParticipantErrors];
+
+export type SelectChatParticipantResponses = {
+    /**
+     * Updated chat participant selection
+     */
+    200: ParticipantSelectionResponse;
+};
+
+export type SelectChatParticipantResponse = SelectChatParticipantResponses[keyof SelectChatParticipantResponses];
+
+export type GetSelectedChatParticipantDeliveryTargetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/chat/participant-selection/delivery-target';
+};
+
+export type GetSelectedChatParticipantDeliveryTargetErrors = {
+    /**
+     * Selected participant delivery target not registered
+     */
+    404: ErrorResponse;
+};
+
+export type GetSelectedChatParticipantDeliveryTargetError = GetSelectedChatParticipantDeliveryTargetErrors[keyof GetSelectedChatParticipantDeliveryTargetErrors];
+
+export type GetSelectedChatParticipantDeliveryTargetResponses = {
+    /**
+     * Selected chat participant delivery target
+     */
+    200: ParticipantDeliveryTargetResponse;
+};
+
+export type GetSelectedChatParticipantDeliveryTargetResponse = GetSelectedChatParticipantDeliveryTargetResponses[keyof GetSelectedChatParticipantDeliveryTargetResponses];
+
+export type ListChatSessionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/chat/sessions';
+};
+
+export type ListChatSessionsResponses = {
+    /**
+     * Product chat sessions
+     */
+    200: ChatSessionListResponse;
+};
+
+export type ListChatSessionsResponse = ListChatSessionsResponses[keyof ListChatSessionsResponses];
+
+export type CreateChatSessionData = {
+    body: ChatSessionCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/chat/sessions';
+};
+
+export type CreateChatSessionErrors = {
+    /**
+     * Invalid chat session request
+     */
+    400: ErrorResponse;
+};
+
+export type CreateChatSessionError = CreateChatSessionErrors[keyof CreateChatSessionErrors];
+
+export type CreateChatSessionResponses = {
+    /**
+     * Created product chat session projection
+     */
+    200: ChatSessionRecord;
+};
+
+export type CreateChatSessionResponse = CreateChatSessionResponses[keyof CreateChatSessionResponses];
+
+export type GetChatSessionData = {
+    body?: never;
+    path: {
+        /**
+         * Product chat session identifier
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/v1/chat/sessions/{session_id}';
+};
+
+export type GetChatSessionErrors = {
+    /**
+     * Chat session not found
+     */
+    404: ErrorResponse;
+};
+
+export type GetChatSessionError = GetChatSessionErrors[keyof GetChatSessionErrors];
+
+export type GetChatSessionResponses = {
+    /**
+     * Product chat session projection
+     */
+    200: ChatSessionRecord;
+};
+
+export type GetChatSessionResponse = GetChatSessionResponses[keyof GetChatSessionResponses];
+
+export type ListChatMessagesData = {
+    body?: never;
+    path: {
+        /**
+         * Product chat session identifier
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/v1/chat/sessions/{session_id}/messages';
+};
+
+export type ListChatMessagesErrors = {
+    /**
+     * Chat session not found
+     */
+    404: ErrorResponse;
+};
+
+export type ListChatMessagesError = ListChatMessagesErrors[keyof ListChatMessagesErrors];
+
+export type ListChatMessagesResponses = {
+    /**
+     * Product chat message projections
+     */
+    200: ChatMessageListResponse;
+};
+
+export type ListChatMessagesResponse = ListChatMessagesResponses[keyof ListChatMessagesResponses];
+
+export type CreateChatMessageData = {
+    body: ChatMessageCreateRequest;
+    path: {
+        /**
+         * Product chat session identifier
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/v1/chat/sessions/{session_id}/messages';
+};
+
+export type CreateChatMessageErrors = {
+    /**
+     * Invalid chat message request
+     */
+    400: ErrorResponse;
+    /**
+     * Chat session not found
+     */
+    404: ErrorResponse;
+};
+
+export type CreateChatMessageError = CreateChatMessageErrors[keyof CreateChatMessageErrors];
+
+export type CreateChatMessageResponses = {
+    /**
+     * Created product chat message projection
+     */
+    200: ChatMessageRecord;
+};
+
+export type CreateChatMessageResponse = CreateChatMessageResponses[keyof CreateChatMessageResponses];
+
+export type AppendChatMessageChunkData = {
+    body: ChatMessageChunkAppendRequest;
+    path: {
+        /**
+         * Product chat session identifier
+         */
+        session_id: string;
+        /**
+         * Product chat message identifier
+         */
+        message_id: string;
+    };
+    query?: never;
+    url: '/api/v1/chat/sessions/{session_id}/messages/{message_id}/chunks';
+};
+
+export type AppendChatMessageChunkErrors = {
+    /**
+     * Invalid chat message chunk request
+     */
+    400: ErrorResponse;
+    /**
+     * Chat message not found
+     */
+    404: ErrorResponse;
+};
+
+export type AppendChatMessageChunkError = AppendChatMessageChunkErrors[keyof AppendChatMessageChunkErrors];
+
+export type AppendChatMessageChunkResponses = {
+    /**
+     * Updated product chat message projection
+     */
+    200: ChatMessageRecord;
+};
+
+export type AppendChatMessageChunkResponse = AppendChatMessageChunkResponses[keyof AppendChatMessageChunkResponses];
+
+export type FinalizeChatMessageData = {
+    body: ChatMessageFinalizeRequest;
+    path: {
+        /**
+         * Product chat session identifier
+         */
+        session_id: string;
+        /**
+         * Product chat message identifier
+         */
+        message_id: string;
+    };
+    query?: never;
+    url: '/api/v1/chat/sessions/{session_id}/messages/{message_id}/finalize';
+};
+
+export type FinalizeChatMessageErrors = {
+    /**
+     * Invalid chat message finalize request
+     */
+    400: ErrorResponse;
+    /**
+     * Chat message not found
+     */
+    404: ErrorResponse;
+};
+
+export type FinalizeChatMessageError = FinalizeChatMessageErrors[keyof FinalizeChatMessageErrors];
+
+export type FinalizeChatMessageResponses = {
+    /**
+     * Finalized product chat message projection
+     */
+    200: ChatMessageRecord;
+};
+
+export type FinalizeChatMessageResponse = FinalizeChatMessageResponses[keyof FinalizeChatMessageResponses];
 
 export type DiscoverEndpointData = {
     body?: never;
@@ -262,3 +832,79 @@ export type HealthResponses = {
 };
 
 export type HealthResponse = HealthResponses[keyof HealthResponses];
+
+export type ListParticipantsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/participants';
+};
+
+export type ListParticipantsResponses = {
+    /**
+     * Product-visible participant projections
+     */
+    200: ParticipantListResponse;
+};
+
+export type ListParticipantsResponse = ListParticipantsResponses[keyof ListParticipantsResponses];
+
+export type GetParticipantData = {
+    body?: never;
+    path: {
+        /**
+         * Product participant identifier
+         */
+        participant_id: string;
+    };
+    query?: never;
+    url: '/api/v1/participants/{participant_id}';
+};
+
+export type GetParticipantErrors = {
+    /**
+     * Participant not registered
+     */
+    404: ErrorResponse;
+};
+
+export type GetParticipantError = GetParticipantErrors[keyof GetParticipantErrors];
+
+export type GetParticipantResponses = {
+    /**
+     * Product-visible participant projection
+     */
+    200: ParticipantRecord;
+};
+
+export type GetParticipantResponse = GetParticipantResponses[keyof GetParticipantResponses];
+
+export type GetParticipantDeliveryTargetData = {
+    body?: never;
+    path: {
+        /**
+         * Product participant identifier
+         */
+        participant_id: string;
+    };
+    query?: never;
+    url: '/api/v1/participants/{participant_id}/delivery-target';
+};
+
+export type GetParticipantDeliveryTargetErrors = {
+    /**
+     * Participant delivery target not registered
+     */
+    404: ErrorResponse;
+};
+
+export type GetParticipantDeliveryTargetError = GetParticipantDeliveryTargetErrors[keyof GetParticipantDeliveryTargetErrors];
+
+export type GetParticipantDeliveryTargetResponses = {
+    /**
+     * Participant delivery target projection
+     */
+    200: ParticipantDeliveryTargetResponse;
+};
+
+export type GetParticipantDeliveryTargetResponse = GetParticipantDeliveryTargetResponses[keyof GetParticipantDeliveryTargetResponses];

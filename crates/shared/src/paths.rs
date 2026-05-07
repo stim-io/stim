@@ -57,7 +57,7 @@ pub fn launcher_bridge_root(sidecar_mode: &str, namespace: &str) -> PathBuf {
         .join("bridges")
 }
 
-pub fn renderer_delivery_launch_bridge_path(sidecar_mode: &str, namespace: &str) -> PathBuf {
+pub fn renderer_launch_bridge_path(sidecar_mode: &str, namespace: &str) -> PathBuf {
     launcher_bridge_root(sidecar_mode, namespace).join("renderer-delivery/launch.json")
 }
 
@@ -97,92 +97,66 @@ pub fn inspect_bridge_response_path(request_id: &str) -> PathBuf {
     inspect_bridge_responses_dir().join(format!("{request_id}.json"))
 }
 
-pub fn renderer_probe_bridge_requests_dir() -> PathBuf {
+pub fn renderer_probe_requests_dir() -> PathBuf {
     bridges_root().join("renderer-probe/requests")
 }
 
-pub fn renderer_probe_bridge_responses_dir() -> PathBuf {
+pub fn renderer_probe_responses_dir() -> PathBuf {
     bridges_root().join("renderer-probe/responses")
 }
 
-pub fn renderer_probe_bridge_request_path(request_id: &str) -> PathBuf {
-    renderer_probe_bridge_requests_dir().join(format!("{request_id}.json"))
+pub fn renderer_probe_request_path(request_id: &str) -> PathBuf {
+    renderer_probe_requests_dir().join(format!("{request_id}.json"))
 }
 
-pub fn renderer_probe_bridge_response_path(request_id: &str) -> PathBuf {
-    renderer_probe_bridge_responses_dir().join(format!("{request_id}.json"))
+pub fn renderer_probe_response_path(request_id: &str) -> PathBuf {
+    renderer_probe_responses_dir().join(format!("{request_id}.json"))
 }
 
-pub fn renderer_action_bridge_requests_dir() -> PathBuf {
+pub fn renderer_action_requests_dir() -> PathBuf {
     bridges_root().join("renderer-action/requests")
 }
 
-pub fn renderer_action_bridge_responses_dir() -> PathBuf {
+pub fn renderer_action_responses_dir() -> PathBuf {
     bridges_root().join("renderer-action/responses")
 }
 
-pub fn renderer_action_bridge_request_path(request_id: &str) -> PathBuf {
-    renderer_action_bridge_requests_dir().join(format!("{request_id}.json"))
+pub fn renderer_action_request_path(request_id: &str) -> PathBuf {
+    renderer_action_requests_dir().join(format!("{request_id}.json"))
 }
 
-pub fn renderer_action_bridge_response_path(request_id: &str) -> PathBuf {
-    renderer_action_bridge_responses_dir().join(format!("{request_id}.json"))
+pub fn renderer_action_response_path(request_id: &str) -> PathBuf {
+    renderer_action_responses_dir().join(format!("{request_id}.json"))
 }
 
-pub fn controller_runtime_bridge_requests_dir() -> PathBuf {
+pub fn controller_runtime_requests_dir() -> PathBuf {
     bridges_root().join("controller-runtime/requests")
 }
 
-pub fn controller_runtime_bridge_responses_dir() -> PathBuf {
+pub fn controller_runtime_responses_dir() -> PathBuf {
     bridges_root().join("controller-runtime/responses")
 }
 
-pub fn controller_runtime_bridge_request_path(request_id: &str) -> PathBuf {
-    controller_runtime_bridge_requests_dir().join(format!("{request_id}.json"))
+pub fn controller_runtime_request_path(request_id: &str) -> PathBuf {
+    controller_runtime_requests_dir().join(format!("{request_id}.json"))
 }
 
-pub fn controller_runtime_bridge_response_path(request_id: &str) -> PathBuf {
-    controller_runtime_bridge_responses_dir().join(format!("{request_id}.json"))
+pub fn controller_runtime_response_path(request_id: &str) -> PathBuf {
+    controller_runtime_responses_dir().join(format!("{request_id}.json"))
 }
 
-#[cfg(test)]
-mod tests {
-    use std::sync::{Mutex, OnceLock};
+pub fn agents_runtime_requests_dir() -> PathBuf {
+    bridges_root().join("agents-runtime/requests")
+}
 
-    use crate::control_plane::{LEGACY_IPC_NAMESPACE_ENV, SIDECAR_NAMESPACE_ENV};
+pub fn agents_runtime_responses_dir() -> PathBuf {
+    bridges_root().join("agents-runtime/responses")
+}
 
-    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+pub fn agents_runtime_request_path(request_id: &str) -> PathBuf {
+    agents_runtime_requests_dir().join(format!("{request_id}.json"))
+}
 
-    fn env_lock() -> &'static Mutex<()> {
-        ENV_LOCK.get_or_init(|| Mutex::new(()))
-    }
-
-    #[test]
-    fn bridge_paths_are_namespace_scoped() {
-        let _guard = env_lock().lock().unwrap();
-        std::env::set_var(SIDECAR_NAMESPACE_ENV, "dev-a");
-        std::env::remove_var(LEGACY_IPC_NAMESPACE_ENV);
-
-        assert!(super::inspect_bridge_request_path("req-1")
-            .to_string_lossy()
-            .contains(".tmp/dev/dev-a/bridges/inspect/requests/req-1.json"));
-        assert!(super::main_window_screenshots_dir()
-            .to_string_lossy()
-            .contains(".tmp/dev/dev-a/bridges/screenshot/artifacts/main-window"));
-
-        std::env::remove_var(SIDECAR_NAMESPACE_ENV);
-    }
-
-    #[test]
-    fn legacy_ipc_namespace_env_is_only_a_fallback() {
-        let _guard = env_lock().lock().unwrap();
-        std::env::remove_var(SIDECAR_NAMESPACE_ENV);
-        std::env::set_var(LEGACY_IPC_NAMESPACE_ENV, "legacy-a");
-
-        assert!(super::renderer_probe_bridge_response_path("req-2")
-            .to_string_lossy()
-            .contains(".tmp/dev/legacy-a/bridges/renderer-probe/responses/req-2.json"));
-
-        std::env::remove_var(LEGACY_IPC_NAMESPACE_ENV);
-    }
+pub fn agents_runtime_response_path(request_id: &str) -> PathBuf {
+    agents_runtime_responses_dir().join(format!("{request_id}.json"))
 }

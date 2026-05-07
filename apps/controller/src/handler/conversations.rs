@@ -1,10 +1,7 @@
 use axum::{extract::State, http::StatusCode, Json};
 
 use crate::{
-    client::{
-        fetch_santi_conversation_messages, fetch_santi_conversation_tool_activities,
-        map_santi_transcript,
-    },
+    client::{fetch_santi_conversation_messages, fetch_santi_tool_activity, map_santi_transcript},
     fetch::FetchError,
     model::{ControllerHttpState, ConversationTranscriptResponse},
 };
@@ -30,7 +27,7 @@ pub(super) async fn conversation_messages(
     let santi_base_url = state.santi_base_url.clone();
     let conversation_id_for_fetch = conversation_id.clone();
     let tool_activities = tokio::task::spawn_blocking(move || {
-        fetch_santi_conversation_tool_activities(&santi_base_url, &conversation_id_for_fetch)
+        fetch_santi_tool_activity(&santi_base_url, &conversation_id_for_fetch)
     })
     .await
     .map_err(|error| {

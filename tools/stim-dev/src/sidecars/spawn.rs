@@ -20,7 +20,7 @@ use crate::control::current_namespace;
 
 use super::{
     bridge_file::write_renderer_delivery_bridge,
-    stamp::{controller_stamp, renderer_stamp, tauri_stamp},
+    stamp::{agents_stamp, controller_stamp, renderer_stamp, tauri_stamp},
 };
 
 const READY_TIMEOUT: Duration = Duration::from_secs(120);
@@ -70,30 +70,58 @@ pub(crate) fn start_controller() -> Result<(), String> {
     run_cargo_owned(&stim_platform::paths::workspace_root(), &args)
 }
 
+pub(crate) fn start_agents() -> Result<(), String> {
+    let namespace = current_namespace();
+    let stamp = agents_stamp(&namespace);
+    let mut args = vec![
+        "run".to_string(),
+        "-p".into(),
+        "stim-agents".into(),
+        "--".into(),
+        "serve".into(),
+    ];
+
+    args.extend(create_stamp_args(&stamp));
+
+    run_cargo_owned(&stim_platform::paths::workspace_root(), &args)
+}
+
+pub(crate) fn spawn_agents_ready(
+    namespace: &str,
+) -> Result<(std::process::Child, SidecarReadyLine), String> {
+    spawn_agents_stdio(namespace, false)
+}
+
+pub(crate) fn spawn_agents_ready_detached(
+    namespace: &str,
+) -> Result<(std::process::Child, SidecarReadyLine), String> {
+    spawn_agents_stdio(namespace, true)
+}
+
 pub(crate) fn spawn_renderer_ready(
     namespace: &str,
     force: bool,
 ) -> Result<(std::process::Child, SidecarReadyLine), String> {
-    spawn_renderer_ready_with_stdio(namespace, force, false)
+    spawn_renderer_stdio(namespace, force, false)
 }
 
 pub(crate) fn spawn_renderer_ready_detached(
     namespace: &str,
     force: bool,
 ) -> Result<(std::process::Child, SidecarReadyLine), String> {
-    spawn_renderer_ready_with_stdio(namespace, force, true)
+    spawn_renderer_stdio(namespace, force, true)
 }
 
 pub(crate) fn spawn_controller_ready(
     namespace: &str,
 ) -> Result<(std::process::Child, SidecarReadyLine), String> {
-    spawn_controller_ready_with_stdio(namespace, false)
+    spawn_controller_stdio(namespace, false)
 }
 
 pub(crate) fn spawn_controller_ready_detached(
     namespace: &str,
 ) -> Result<(std::process::Child, SidecarReadyLine), String> {
-    spawn_controller_ready_with_stdio(namespace, true)
+    spawn_controller_stdio(namespace, true)
 }
 
 pub(crate) fn spawn_tauri(
@@ -126,7 +154,7 @@ pub(crate) fn wait_children(children: Vec<(String, std::process::Child)>) -> Res
     first_error.map_or(Ok(()), Err)
 }
 
-fn spawn_renderer_ready_with_stdio(
+fn spawn_renderer_stdio(
     namespace: &str,
     force: bool,
     detached_stdio: bool,
@@ -168,7 +196,7 @@ fn spawn_renderer_ready_with_stdio(
     Ok((child, ready))
 }
 
-fn spawn_controller_ready_with_stdio(
+fn spawn_controller_stdio(
     namespace: &str,
     detached_stdio: bool,
 ) -> Result<(std::process::Child, SidecarReadyLine), String> {
@@ -205,6 +233,43 @@ fn spawn_controller_ready_with_stdio(
     Ok((child, ready))
 }
 
+fn spawn_agents_stdio(
+    namespace: &str,
+    detached_stdio: bool,
+) -> Result<(std::process::Child, SidecarReadyLine), String> {
+    let stamp = agents_stamp(namespace);
+    let stamp_args = create_stamp_args(&stamp);
+    let mut command = Command::new("cargo");
+    command
+        .args(["run", "-p", "stim-agents", "--", "serve"])
+        .args(&stamp_args)
+        .current_dir(stim_platform::paths::workspace_root())
+        .stdin(if detached_stdio {
+            Stdio::null()
+        } else {
+            Stdio::inherit()
+        })
+        .stdout(Stdio::piped())
+        .stderr(if detached_stdio {
+            Stdio::null()
+        } else {
+            Stdio::inherit()
+        });
+    let log_path = if detached_stdio {
+        detach_process_group(&mut command);
+        redirect_detached_output(&mut command, namespace, &stamp.app)?
+    } else {
+        None
+    };
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("failed to spawn agents: {error}"))?;
+    let stdout = child.stdout.take();
+    let ready = wait_for_child_ready(&mut child, stdout, log_path.as_deref(), "agents")?;
+    validate_ready(&stamp, "agents-runtime", &ready)?;
+    Ok((child, ready))
+}
+
 fn redirect_detached_output(
     command: &mut Command,
     namespace: &str,
@@ -238,7 +303,7 @@ fn wait_for_child_ready(
     name: &str,
 ) -> Result<SidecarReadyLine, String> {
     if let Some(log_path) = log_path {
-        return wait_for_ready_line_in_log(child, log_path, name);
+        return wait_for_ready_log(child, log_path, name);
     }
 
     let stdout = stdout.ok_or_else(|| format!("{name} stdout was not piped"))?;
@@ -246,7 +311,7 @@ fn wait_for_child_ready(
         .map_err(|error| format!("{name} ready failed: {error}"))
 }
 
-fn wait_for_ready_line_in_log(
+fn wait_for_ready_log(
     child: &mut Child,
     log_path: &Path,
     name: &str,

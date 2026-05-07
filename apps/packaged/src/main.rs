@@ -10,7 +10,7 @@ mod runner;
 use cli::{parse_args, print_help, CommandLine};
 use launch::launch_packaged_sidecar;
 use plan::packaged_sidecar_plan;
-use runner::{run_renderer_sidecar, run_tauri_sidecar};
+use runner::{run_agents_sidecar, run_renderer_sidecar, run_tauri_sidecar};
 
 fn main() {
     if let Err(error) = run() {
@@ -37,6 +37,7 @@ fn run() -> Result<(), String> {
             let plan = packaged_sidecar_plan(namespace.as_deref());
             launch_packaged_sidecar(&plan, &app)
         }
+        CommandLine::RunAgents { args } => run_agents_sidecar(args),
         CommandLine::RunRenderer { args } => run_renderer_sidecar(args),
         CommandLine::RunTauri { args } => run_tauri_sidecar(args),
     }

@@ -6,7 +6,8 @@ use std::{
 
 use stim_shared::message_operation::{
     ControllerOperationCommand, ControllerOperationCommandEnvelope, ControllerOperationEvent,
-    ControllerOperationSnapshot, ControllerOperationStage, ControllerOperationStatus,
+    ControllerOperationMessageDelta, ControllerOperationReference, ControllerOperationSnapshot,
+    ControllerOperationStage, ControllerOperationStatus,
     CONTROLLER_MESSAGE_OPERATION_SCHEMA_VERSION,
 };
 
@@ -26,6 +27,8 @@ pub(crate) struct OperationEventPayload {
     pub(crate) conversation_id: Option<String>,
     pub(crate) message_id: Option<String>,
     pub(crate) detail: Option<String>,
+    pub(crate) references: Vec<ControllerOperationReference>,
+    pub(crate) message_delta: Option<ControllerOperationMessageDelta>,
     pub(crate) snapshot: Option<ControllerOperationSnapshot>,
 }
 
@@ -47,6 +50,8 @@ pub(crate) fn operation_event(
         status,
         occurred_at: timestamp_now(),
         detail: payload.detail,
+        references: payload.references,
+        message_delta: payload.message_delta,
         snapshot: payload.snapshot,
     }
 }
@@ -66,6 +71,8 @@ pub(crate) fn command_decode_failed_event(
             detail: Some(format!(
                 "controller operation command decode failed: {error}"
             )),
+            references: vec![],
+            message_delta: None,
             snapshot: None,
         },
     )
@@ -86,6 +93,8 @@ pub(crate) fn unsupported_schema_event(
                 "unsupported controller operation schema_version {}",
                 command.schema_version
             )),
+            references: vec![],
+            message_delta: None,
             snapshot: None,
         },
     )

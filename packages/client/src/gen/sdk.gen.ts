@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { DiscoverEndpointData, DiscoverEndpointErrors, DiscoverEndpointResponses, HealthData, HealthResponses, RegisterEndpointData, RegisterEndpointErrors, RegisterEndpointResponses } from './types.gen';
+import type { AppendChatMessageChunkData, AppendChatMessageChunkErrors, AppendChatMessageChunkResponses, CreateChatMessageData, CreateChatMessageErrors, CreateChatMessageResponses, CreateChatSessionData, CreateChatSessionErrors, CreateChatSessionResponses, DiscoverEndpointData, DiscoverEndpointErrors, DiscoverEndpointResponses, FinalizeChatMessageData, FinalizeChatMessageErrors, FinalizeChatMessageResponses, GetAgentInstanceData, GetAgentInstanceErrors, GetAgentInstanceResponses, GetChatParticipantSelectionData, GetChatParticipantSelectionResponses, GetChatSessionData, GetChatSessionErrors, GetChatSessionResponses, GetParticipantData, GetParticipantDeliveryTargetData, GetParticipantDeliveryTargetErrors, GetParticipantDeliveryTargetResponses, GetParticipantErrors, GetParticipantResponses, GetSelectedChatParticipantDeliveryTargetData, GetSelectedChatParticipantDeliveryTargetErrors, GetSelectedChatParticipantDeliveryTargetResponses, HealthData, HealthResponses, HeartbeatAgentInstanceData, HeartbeatAgentInstanceErrors, HeartbeatAgentInstanceResponses, ListAgentInstancesData, ListAgentInstancesResponses, ListChatMessagesData, ListChatMessagesErrors, ListChatMessagesResponses, ListChatSessionsData, ListChatSessionsResponses, ListParticipantsData, ListParticipantsResponses, RegisterAgentInstanceData, RegisterAgentInstanceErrors, RegisterAgentInstanceResponses, RegisterEndpointData, RegisterEndpointErrors, RegisterEndpointResponses, SelectChatParticipantData, SelectChatParticipantErrors, SelectChatParticipantResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -18,6 +18,83 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
     meta?: Record<string, unknown>;
 };
 
+export const listAgentInstances = <ThrowOnError extends boolean = false>(options?: Options<ListAgentInstancesData, ThrowOnError>) => (options?.client ?? client).get<ListAgentInstancesResponses, unknown, ThrowOnError>({ url: '/api/v1/agents/instances', ...options });
+
+export const getAgentInstance = <ThrowOnError extends boolean = false>(options: Options<GetAgentInstanceData, ThrowOnError>) => (options.client ?? client).get<GetAgentInstanceResponses, GetAgentInstanceErrors, ThrowOnError>({ url: '/api/v1/agents/instances/{instance_id}', ...options });
+
+export const registerAgentInstance = <ThrowOnError extends boolean = false>(options: Options<RegisterAgentInstanceData, ThrowOnError>) => (options.client ?? client).put<RegisterAgentInstanceResponses, RegisterAgentInstanceErrors, ThrowOnError>({
+    url: '/api/v1/agents/instances/{instance_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const heartbeatAgentInstance = <ThrowOnError extends boolean = false>(options: Options<HeartbeatAgentInstanceData, ThrowOnError>) => (options.client ?? client).post<HeartbeatAgentInstanceResponses, HeartbeatAgentInstanceErrors, ThrowOnError>({
+    url: '/api/v1/agents/instances/{instance_id}/heartbeat',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getChatParticipantSelection = <ThrowOnError extends boolean = false>(options?: Options<GetChatParticipantSelectionData, ThrowOnError>) => (options?.client ?? client).get<GetChatParticipantSelectionResponses, unknown, ThrowOnError>({ url: '/api/v1/chat/participant-selection', ...options });
+
+export const selectChatParticipant = <ThrowOnError extends boolean = false>(options: Options<SelectChatParticipantData, ThrowOnError>) => (options.client ?? client).put<SelectChatParticipantResponses, SelectChatParticipantErrors, ThrowOnError>({
+    url: '/api/v1/chat/participant-selection',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getSelectedChatParticipantDeliveryTarget = <ThrowOnError extends boolean = false>(options?: Options<GetSelectedChatParticipantDeliveryTargetData, ThrowOnError>) => (options?.client ?? client).get<GetSelectedChatParticipantDeliveryTargetResponses, GetSelectedChatParticipantDeliveryTargetErrors, ThrowOnError>({ url: '/api/v1/chat/participant-selection/delivery-target', ...options });
+
+export const listChatSessions = <ThrowOnError extends boolean = false>(options?: Options<ListChatSessionsData, ThrowOnError>) => (options?.client ?? client).get<ListChatSessionsResponses, unknown, ThrowOnError>({ url: '/api/v1/chat/sessions', ...options });
+
+export const createChatSession = <ThrowOnError extends boolean = false>(options: Options<CreateChatSessionData, ThrowOnError>) => (options.client ?? client).post<CreateChatSessionResponses, CreateChatSessionErrors, ThrowOnError>({
+    url: '/api/v1/chat/sessions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getChatSession = <ThrowOnError extends boolean = false>(options: Options<GetChatSessionData, ThrowOnError>) => (options.client ?? client).get<GetChatSessionResponses, GetChatSessionErrors, ThrowOnError>({ url: '/api/v1/chat/sessions/{session_id}', ...options });
+
+export const listChatMessages = <ThrowOnError extends boolean = false>(options: Options<ListChatMessagesData, ThrowOnError>) => (options.client ?? client).get<ListChatMessagesResponses, ListChatMessagesErrors, ThrowOnError>({ url: '/api/v1/chat/sessions/{session_id}/messages', ...options });
+
+export const createChatMessage = <ThrowOnError extends boolean = false>(options: Options<CreateChatMessageData, ThrowOnError>) => (options.client ?? client).post<CreateChatMessageResponses, CreateChatMessageErrors, ThrowOnError>({
+    url: '/api/v1/chat/sessions/{session_id}/messages',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const appendChatMessageChunk = <ThrowOnError extends boolean = false>(options: Options<AppendChatMessageChunkData, ThrowOnError>) => (options.client ?? client).post<AppendChatMessageChunkResponses, AppendChatMessageChunkErrors, ThrowOnError>({
+    url: '/api/v1/chat/sessions/{session_id}/messages/{message_id}/chunks',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const finalizeChatMessage = <ThrowOnError extends boolean = false>(options: Options<FinalizeChatMessageData, ThrowOnError>) => (options.client ?? client).post<FinalizeChatMessageResponses, FinalizeChatMessageErrors, ThrowOnError>({
+    url: '/api/v1/chat/sessions/{session_id}/messages/{message_id}/finalize',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
 export const discoverEndpoint = <ThrowOnError extends boolean = false>(options: Options<DiscoverEndpointData, ThrowOnError>) => (options.client ?? client).get<DiscoverEndpointResponses, DiscoverEndpointErrors, ThrowOnError>({ url: '/api/v1/discovery/endpoints/{endpoint_id}', ...options });
 
 export const registerEndpoint = <ThrowOnError extends boolean = false>(options: Options<RegisterEndpointData, ThrowOnError>) => (options.client ?? client).put<RegisterEndpointResponses, RegisterEndpointErrors, ThrowOnError>({
@@ -30,3 +107,9 @@ export const registerEndpoint = <ThrowOnError extends boolean = false>(options: 
 });
 
 export const health = <ThrowOnError extends boolean = false>(options?: Options<HealthData, ThrowOnError>) => (options?.client ?? client).get<HealthResponses, unknown, ThrowOnError>({ url: '/api/v1/health', ...options });
+
+export const listParticipants = <ThrowOnError extends boolean = false>(options?: Options<ListParticipantsData, ThrowOnError>) => (options?.client ?? client).get<ListParticipantsResponses, unknown, ThrowOnError>({ url: '/api/v1/participants', ...options });
+
+export const getParticipant = <ThrowOnError extends boolean = false>(options: Options<GetParticipantData, ThrowOnError>) => (options.client ?? client).get<GetParticipantResponses, GetParticipantErrors, ThrowOnError>({ url: '/api/v1/participants/{participant_id}', ...options });
+
+export const getParticipantDeliveryTarget = <ThrowOnError extends boolean = false>(options: Options<GetParticipantDeliveryTargetData, ThrowOnError>) => (options.client ?? client).get<GetParticipantDeliveryTargetResponses, GetParticipantDeliveryTargetErrors, ThrowOnError>({ url: '/api/v1/participants/{participant_id}/delivery-target', ...options });

@@ -9,8 +9,7 @@ use stim_shared::{
         RendererActionResult, RENDERER_ACTION_REQUEST_EVENT, RENDERER_ACTION_RESPONSE_EVENT,
     },
     paths::{
-        renderer_action_bridge_requests_dir, renderer_action_bridge_response_path,
-        renderer_action_bridge_responses_dir,
+        renderer_action_requests_dir, renderer_action_response_path, renderer_action_responses_dir,
     },
 };
 
@@ -41,12 +40,12 @@ pub fn register_renderer_action_listener<R: Runtime>(app: &AppHandle<R>) {
 }
 
 pub fn poll_renderer_action_requests<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
-    std::fs::create_dir_all(renderer_action_bridge_requests_dir())
+    std::fs::create_dir_all(renderer_action_requests_dir())
         .map_err(|error| format!("failed to create action request dir: {error}"))?;
-    std::fs::create_dir_all(renderer_action_bridge_responses_dir())
+    std::fs::create_dir_all(renderer_action_responses_dir())
         .map_err(|error| format!("failed to create action response dir: {error}"))?;
 
-    let mut entries = std::fs::read_dir(renderer_action_bridge_requests_dir())
+    let mut entries = std::fs::read_dir(renderer_action_requests_dir())
         .map_err(|error| format!("failed to read action request dir: {error}"))?
         .filter_map(Result::ok)
         .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
@@ -82,7 +81,7 @@ pub fn poll_renderer_action_requests<R: Runtime>(app: &AppHandle<R>) -> Result<(
             result,
         };
 
-        let response_path = renderer_action_bridge_response_path(&request.request_id);
+        let response_path = renderer_action_response_path(&request.request_id);
         let response_body = serde_json::to_string_pretty(&response)
             .map_err(|error| format!("failed to serialize action response: {error}"))?;
         std::fs::write(&response_path, format!("{response_body}\n"))
@@ -128,7 +127,7 @@ fn request_renderer_action<R: Runtime>(
     }
 }
 
-fn renderer_action_timeout(action: &RendererActionRequest) -> Duration {
+pub fn renderer_action_timeout(action: &RendererActionRequest) -> Duration {
     match action {
         RendererActionRequest::MessagingNewConversation => Duration::from_secs(10),
         RendererActionRequest::MessagingSend { .. } => Duration::from_secs(130),
@@ -154,29 +153,5 @@ fn take_response<R: Runtime>(
 fn clear_previous_response<R: Runtime>(app: &AppHandle<R>, request_id: &str) {
     if let Ok(mut responses) = app.state::<RendererActionResponses>().0.lock() {
         responses.remove(request_id);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::time::Duration;
-
-    use stim_shared::inspection::RendererActionRequest;
-
-    use super::renderer_action_timeout;
-
-    #[test]
-    fn renderer_action_timeout_allows_real_roundtrip_without_becoming_unbounded() {
-        assert_eq!(
-            renderer_action_timeout(&RendererActionRequest::MessagingNewConversation),
-            Duration::from_secs(10)
-        );
-        assert_eq!(
-            renderer_action_timeout(&RendererActionRequest::MessagingSend {
-                text: "hello".into(),
-                target_endpoint_id: None,
-            }),
-            Duration::from_secs(130)
-        );
     }
 }

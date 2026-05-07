@@ -8,7 +8,8 @@
     "build:renderer": "pnpm -C packages/client build && pnpm -C apps/renderer/vite build",
     "format:check": "pnpm exec prettier --check .",
     "generate:client": "pnpm -C packages/client generate",
-    "guard": "cargo fmt --all --check && cargo test -p stim-dev -p stim-shared -p stim-controller && pnpm run typecheck:client && pnpm run typecheck:renderer",
+    "guard": "cargo fmt --all --check && cargo test -p stim-dev -p stim-shared -p stim-controller && pnpm run typecheck:client && pnpm run typecheck:renderer && pnpm run guard:style",
+    "guard:style": "cargo run -p stim-guard -- check",
     "typecheck:client": "pnpm -C packages/client typecheck",
     "typecheck:renderer": "pnpm -C packages/client build && pnpm -C apps/renderer/vite typecheck"
   },

@@ -4,20 +4,20 @@ use serde::Serialize;
 
 use super::http::http_get_status;
 
-const DEFAULT_STIM_SERVER_BASE_URL: &str = "http://127.0.0.1:18083";
+const DEFAULT_SERVER_BASE_URL: &str = "http://127.0.0.1:18083";
 const DEFAULT_SANTI_BASE_URL: &str = "http://127.0.0.1:18081";
 const DEFAULT_SANTI_LINK_BASE_URL: &str = "http://127.0.0.1:18082";
 
-pub(super) const STANDALONE_COMPOSE_HINT: &str =
+pub(crate) const STANDALONE_COMPOSE_HINT: &str =
     "docker compose up -d --build stim-server santi-link";
-pub(super) const LOCAL_SANTI_HINT: &str = "scripts/santi local";
+pub(crate) const LOCAL_SANTI_HINT: &str = "scripts/santi local";
 
 pub(super) fn default_service_probes() -> Vec<ServiceProbe> {
     vec![
         ServiceProbe::check(
             "stim-server",
             Some("STIM_SERVER_BASE_URL"),
-            DEFAULT_STIM_SERVER_BASE_URL,
+            DEFAULT_SERVER_BASE_URL,
             "/api/v1/health",
             "compose-default",
         ),
@@ -39,14 +39,14 @@ pub(super) fn default_service_probes() -> Vec<ServiceProbe> {
 }
 
 #[derive(Serialize)]
-pub(super) struct ServiceProbe {
-    pub(super) name: &'static str,
-    pub(super) source: &'static str,
-    pub(super) env_var: Option<&'static str>,
-    pub(super) base_url: String,
-    pub(super) health_path: &'static str,
-    pub(super) state: &'static str,
-    pub(super) detail: String,
+pub(crate) struct ServiceProbe {
+    pub(crate) name: &'static str,
+    pub(crate) source: &'static str,
+    pub(crate) env_var: Option<&'static str>,
+    pub(crate) base_url: String,
+    pub(crate) health_path: &'static str,
+    pub(crate) state: &'static str,
+    pub(crate) detail: String,
 }
 
 impl ServiceProbe {

@@ -20,6 +20,7 @@ import {
 
 import MessageRow from "./MessageRow.vue";
 import type { SessionSummary } from "./types";
+import type { RegisteredParticipant } from "../../server/agents";
 
 const props = defineProps<{
   session: SessionSummary;
@@ -33,6 +34,10 @@ const props = defineProps<{
   lastResponseText: string | null;
   lastResponseSource: string | null;
   lastFinalSentText: string | null;
+  registeredParticipants: RegisteredParticipant[];
+  selectedParticipantId: string | null;
+  participantErrorMessage: string | null;
+  isParticipantSelecting: boolean;
 }>();
 
 const threadPaneRef = ref<ComponentPublicInstance | HTMLElement | null>(null);
@@ -43,6 +48,14 @@ const canSend = computed(
 const latestToolActivity = computed(
   () => props.session.toolActivities.at(-1) ?? null,
 );
+const TOOL_OUTPUT_PRESSURE_LIMIT = 10_000;
+const selectedParticipant = computed(
+  () =>
+    props.registeredParticipants.find(
+      (participant) =>
+        participant.participant_id === props.selectedParticipantId,
+    ) ?? null,
+);
 const toolActivitySummary = computed(() => {
   const activity = latestToolActivity.value;
   if (!activity) {
@@ -50,12 +63,24 @@ const toolActivitySummary = computed(() => {
   }
 
   const result = activity.output_summary ?? activity.result_state;
-  return `${props.session.toolActivities.length} activity · ${activity.tool_name} · ${result}`;
+  const pressure = toolOutputPressureLabel(
+    activity.stdout_chars,
+    activity.stderr_chars,
+  );
+  return [
+    `${props.session.toolActivities.length} activity`,
+    activity.tool_name,
+    result,
+    pressure,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 });
 
 const emit = defineEmits<{
   "update:draftText": [value: string];
   "update:targetEndpointId": [value: string];
+  selectParticipant: [participantId: string];
   send: [];
 }>();
 
@@ -85,6 +110,18 @@ function handleComposerEnter(event: KeyboardEvent) {
 
   event.preventDefault();
   emit("send");
+}
+
+function toolOutputPressureLabel(
+  stdoutChars: number | null,
+  stderrChars: number | null,
+): string | null {
+  const totalChars = (stdoutChars ?? 0) + (stderrChars ?? 0);
+  if (totalChars < TOOL_OUTPUT_PRESSURE_LIMIT) {
+    return null;
+  }
+
+  return "large tool output";
 }
 </script>
 
@@ -121,10 +158,10 @@ function handleComposerEnter(event: KeyboardEvent) {
               </StimStack>
               <StimStack align="end" gap="xs">
                 <StimText as="span" size="label">{{
-                  session.participantLabel
+                  selectedParticipant?.display_label ?? session.participantLabel
                 }}</StimText>
                 <StimText as="span" size="caption" tone="secondary">
-                  {{ controllerStatus }}
+                  {{ selectedParticipant?.status ?? controllerStatus }}
                 </StimText>
               </StimStack>
             </StimInline>
@@ -213,8 +250,40 @@ function handleComposerEnter(event: KeyboardEvent) {
               </StimInline>
               <StimDisclosure
                 summary="Delivery settings"
-                :caption="targetEndpointId"
+                :caption="selectedParticipantId ?? targetEndpointId"
               >
+                <StimStack gap="xs">
+                  <StimText as="p" size="caption" tone="secondary">
+                    Chat participant
+                  </StimText>
+                  <StimInline gap="sm" wrap>
+                    <StimButton
+                      v-for="participant in registeredParticipants"
+                      :key="participant.participant_id"
+                      :disabled="
+                        isParticipantSelecting ||
+                        !session.live ||
+                        participant.participant_id === selectedParticipantId
+                      "
+                      :label="participant.display_label"
+                      :pressed="
+                        participant.participant_id === selectedParticipantId
+                      "
+                      data-probe="message-participant-select-button"
+                      size="sm"
+                      variant="ghost"
+                      @click="emit('selectParticipant', participant.participant_id)"
+                    />
+                  </StimInline>
+                  <StimText
+                    v-if="participantErrorMessage"
+                    as="p"
+                    size="caption"
+                    tone="secondary"
+                  >
+                    {{ participantErrorMessage }}
+                  </StimText>
+                </StimStack>
                 <StimInput
                   :model-value="targetEndpointId"
                   data-probe="target-endpoint-input"

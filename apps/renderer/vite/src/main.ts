@@ -3,7 +3,7 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import { setupInspectionActions } from "./inspection/actions";
 import { setupInspectionProbes } from "./inspection/probes";
-import { buildStimServerDiscoveryUrl } from "./server/client-proof";
+import { buildServerDiscoveryUrl } from "./server/client-proof";
 import { applyTheme } from "./styles/bootstrap";
 
 function renderBootstrapError(error: unknown) {
@@ -21,7 +21,7 @@ async function bootstrap() {
   createApp(App).mount("#app");
   void setupInspectionActions();
   void setupInspectionProbes();
-  buildStimServerDiscoveryUrl("bootstrap-proof");
+  buildServerDiscoveryUrl("bootstrap-proof");
 }
 
 void bootstrap().catch((error) => {

@@ -1,4 +1,5 @@
 pub(crate) const RUN_RENDERER_COMMAND: &str = "__run-renderer";
+pub(crate) const RUN_AGENTS_COMMAND: &str = "__run-agents";
 pub(crate) const RUN_TAURI_COMMAND: &str = "__run-tauri";
 
 pub(crate) enum CommandLine {
@@ -13,6 +14,9 @@ pub(crate) enum CommandLine {
     RunRenderer {
         args: Vec<String>,
     },
+    RunAgents {
+        args: Vec<String>,
+    },
     RunTauri {
         args: Vec<String>,
     },
@@ -22,6 +26,11 @@ pub(crate) fn parse_args(mut raw_args: Vec<String>) -> Result<CommandLine, Strin
     match raw_args.first().map(String::as_str) {
         Some(RUN_RENDERER_COMMAND) => {
             return Ok(CommandLine::RunRenderer {
+                args: raw_args.split_off(1),
+            });
+        }
+        Some(RUN_AGENTS_COMMAND) => {
+            return Ok(CommandLine::RunAgents {
                 args: raw_args.split_off(1),
             });
         }
@@ -66,11 +75,11 @@ pub(crate) fn parse_args(mut raw_args: Vec<String>) -> Result<CommandLine, Strin
         return Ok(CommandLine::PrintPlan { namespace });
     }
 
-    Err("packaged launch requires --plan or launch <controller|renderer|tauri>".into())
+    Err("packaged launch requires --plan or launch <agents|controller|renderer|tauri>".into())
 }
 
 pub(crate) fn print_help() {
     println!(
-        "stim-packaged commands:\n  --plan [--namespace <value>]             print packaged runtime sidecar assembly plan\n  launch all [--namespace <value>]         run packaged renderer delivery and Tauri host\n  launch controller [--namespace <value>]  run packaged controller sidecar in the foreground\n  launch renderer [--namespace <value>]    build and hold packaged renderer delivery\n  launch tauri [--namespace <value>]       run packaged Tauri host in the foreground"
+        "stim-packaged commands:\n  --plan [--namespace <value>]             print packaged runtime sidecar assembly plan\n  launch all [--namespace <value>]         run packaged renderer delivery and Tauri host\n  launch agents [--namespace <value>]      run packaged agents sidecar in the foreground\n  launch controller [--namespace <value>]  run packaged controller sidecar in the foreground\n  launch renderer [--namespace <value>]    build and hold packaged renderer delivery\n  launch tauri [--namespace <value>]       run packaged Tauri host in the foreground"
     );
 }

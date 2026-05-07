@@ -15,7 +15,7 @@ pub(crate) fn fetch_santi_conversation_messages(
     )
 }
 
-pub(crate) fn fetch_santi_conversation_tool_activities(
+pub(crate) fn fetch_santi_tool_activity(
     santi_base_url: &str,
     conversation_id: &str,
 ) -> Result<FetchOutcome<SantiSessionToolActivitiesResponse>, FetchError> {

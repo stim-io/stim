@@ -1,4 +1,5 @@
 use axum::http::StatusCode;
+use serde::Deserialize;
 use stim_proto::DiscoveryRecord;
 
 pub(crate) fn seed_stim_server_registry(
@@ -50,6 +51,49 @@ pub(crate) fn discover_endpoint_via_server(
         })
 }
 
+pub(crate) fn resolve_delivery_endpoint(
+    base_url: &str,
+    participant_id: &str,
+) -> Result<String, (StatusCode, String)> {
+    let client = reqwest::blocking::Client::new();
+    let response = client
+        .get(format!(
+            "{base_url}/api/v1/participants/{participant_id}/delivery-target"
+        ))
+        .send()
+        .map_err(|error| {
+            (
+                StatusCode::BAD_GATEWAY,
+                format!("stim-server participant delivery-target request failed: {error}"),
+            )
+        })?;
+
+    let status = response.status();
+    if status == reqwest::StatusCode::NOT_FOUND {
+        return Err((
+            StatusCode::NOT_FOUND,
+            "participant delivery target not registered".into(),
+        ));
+    }
+
+    response
+        .error_for_status()
+        .map_err(|error| {
+            (
+                StatusCode::BAD_GATEWAY,
+                format!("stim-server participant delivery-target status failed: {error}"),
+            )
+        })?
+        .json::<ParticipantDeliveryTargetResponse>()
+        .map(|response| response.delivery_target.endpoint_id)
+        .map_err(|error| {
+            (
+                StatusCode::BAD_GATEWAY,
+                format!("stim-server participant delivery-target decode failed: {error}"),
+            )
+        })
+}
+
 pub(crate) fn register_endpoint_via_server(
     base_url: &str,
     record: &DiscoveryRecord,
@@ -76,4 +120,14 @@ pub(crate) fn register_endpoint_via_server(
             )
         })?;
     Ok(())
+}
+
+#[derive(Deserialize)]
+struct ParticipantDeliveryTargetResponse {
+    delivery_target: ParticipantDeliveryTarget,
+}
+
+#[derive(Deserialize)]
+struct ParticipantDeliveryTarget {
+    endpoint_id: String,
 }

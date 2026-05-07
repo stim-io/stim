@@ -6,13 +6,13 @@ use super::{
 };
 
 #[derive(Serialize)]
-pub(super) struct DetectSummary {
-    pub(super) state: &'static str,
-    pub(super) ready: bool,
-    pub(super) needs_action: Vec<String>,
+pub(crate) struct DetectSummary {
+    pub(crate) state: &'static str,
+    pub(crate) ready: bool,
+    pub(crate) needs_action: Vec<String>,
 }
 
-pub(super) fn summarize(files: &FileProbes, services: &[ServiceProbe]) -> DetectSummary {
+pub(crate) fn summarize(files: &FileProbes, services: &[ServiceProbe]) -> DetectSummary {
     let mut needs_action = Vec::new();
 
     if files.santi_link_auth.state != "present" {
@@ -36,7 +36,7 @@ pub(super) fn summarize(files: &FileProbes, services: &[ServiceProbe]) -> Detect
     }
 }
 
-pub(super) fn operation_hints(
+pub(crate) fn operation_hints(
     root_workspace: &RootWorkspaceProbe,
     files: &FileProbes,
     services: &[ServiceProbe],
@@ -102,180 +102,4 @@ pub(super) fn operation_hints(
     }
 
     hints
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        super::{
-            probes::{
-                AppLoopProbe, AppLoopResidueProbe, FileProbes, PathProbe, RootWorkspaceProbe,
-            },
-            services::ServiceProbe,
-        },
-        operation_hints, DetectSummary,
-    };
-
-    #[test]
-    fn hints_explain_root_prerequisites_without_owning_lifecycle() {
-        let root_workspace = root_workspace();
-        let files = present_files();
-        let services = vec![
-            ServiceProbe {
-                name: "stim-server",
-                source: "compose-default",
-                env_var: Some("STIM_SERVER_BASE_URL"),
-                base_url: "http://127.0.0.1:18083".into(),
-                health_path: "/api/v1/health",
-                state: "unavailable",
-                detail: "connection refused".into(),
-            },
-            ServiceProbe {
-                name: "santi",
-                source: "local-santi-default",
-                env_var: Some("SANTI_BASE_URL"),
-                base_url: "http://127.0.0.1:18081".into(),
-                health_path: "/api/v1/health",
-                state: "unavailable",
-                detail: "connection refused".into(),
-            },
-        ];
-        let summary = super::summarize(&files, &services);
-        let app_loop = AppLoopProbe {
-            state: "stopped-clean",
-            detail: "no stamped app-loop processes or residue found".into(),
-            stamped_process_count: 0,
-            stamped_processes: Vec::new(),
-            residue: missing_residue(),
-        };
-
-        let hints =
-            operation_hints(&root_workspace, &files, &services, &summary, &app_loop).join("\n");
-
-        assert!(hints.contains("docker compose up -d --build stim-server santi-link"));
-        assert!(hints.contains("scripts/santi local"));
-        assert!(hints.contains("read-only"));
-        assert!(!hints.contains("start-standalone"));
-    }
-
-    #[test]
-    fn ready_summary_points_to_child_app_loop() {
-        let root_workspace = root_workspace();
-        let files = present_files();
-        let services = vec![ServiceProbe {
-            name: "santi",
-            source: "local-santi-default",
-            env_var: Some("SANTI_BASE_URL"),
-            base_url: "http://127.0.0.1:18081".into(),
-            health_path: "/api/v1/health",
-            state: "ready",
-            detail: "health returned HTTP 200".into(),
-        }];
-        let summary = DetectSummary {
-            state: "ready",
-            ready: true,
-            needs_action: Vec::new(),
-        };
-        let app_loop = AppLoopProbe {
-            state: "stopped-clean",
-            detail: "no stamped app-loop processes or residue found".into(),
-            stamped_process_count: 0,
-            stamped_processes: Vec::new(),
-            residue: missing_residue(),
-        };
-
-        let hints =
-            operation_hints(&root_workspace, &files, &services, &summary, &app_loop).join("\n");
-
-        assert!(hints.contains("stim-dev restart"));
-        assert!(!hints.contains("docker compose up"));
-    }
-
-    #[test]
-    fn residue_without_processes_suggests_reset_before_clean_restart() {
-        let root_workspace = root_workspace();
-        let files = present_files();
-        let services = vec![ServiceProbe {
-            name: "santi",
-            source: "local-santi-default",
-            env_var: Some("SANTI_BASE_URL"),
-            base_url: "http://127.0.0.1:18081".into(),
-            health_path: "/api/v1/health",
-            state: "ready",
-            detail: "health returned HTTP 200".into(),
-        }];
-        let summary = DetectSummary {
-            state: "ready",
-            ready: true,
-            needs_action: Vec::new(),
-        };
-        let app_loop = AppLoopProbe {
-            state: "stopped-with-residue",
-            detail: "no stamped app-loop processes found, but bridge/log/lock residue exists"
-                .into(),
-            stamped_process_count: 0,
-            stamped_processes: Vec::new(),
-            residue: AppLoopResidueProbe {
-                bridges: present_dir("app-loop bridges"),
-                logs: missing_dir("app-loop logs"),
-                locks: missing_dir("app-loop locks"),
-            },
-        };
-
-        let hints =
-            operation_hints(&root_workspace, &files, &services, &summary, &app_loop).join("\n");
-
-        assert!(hints.contains("stim-dev reset"));
-        assert!(hints.contains("then stim-dev restart"));
-    }
-
-    fn root_workspace() -> RootWorkspaceProbe {
-        RootWorkspaceProbe {
-            state: "attached",
-            path: Some("/workspace".into()),
-            compose_file: PathProbe {
-                label: "root docker-compose.yml",
-                path: Some("/workspace/docker-compose.yml".into()),
-                state: "present",
-                detail: "file exists".into(),
-            },
-        }
-    }
-
-    fn present_files() -> FileProbes {
-        FileProbes {
-            santi_link_auth: PathProbe {
-                label: "santi-link auth.json",
-                path: Some("/workspace/modules/santi-link/auth.json".into()),
-                state: "present",
-                detail: "file exists".into(),
-            },
-        }
-    }
-
-    fn missing_residue() -> AppLoopResidueProbe {
-        AppLoopResidueProbe {
-            bridges: missing_dir("app-loop bridges"),
-            logs: missing_dir("app-loop logs"),
-            locks: missing_dir("app-loop locks"),
-        }
-    }
-
-    fn present_dir(label: &'static str) -> PathProbe {
-        PathProbe {
-            label,
-            path: Some(format!("/workspace/{label}")),
-            state: "present",
-            detail: "directory exists".into(),
-        }
-    }
-
-    fn missing_dir(label: &'static str) -> PathProbe {
-        PathProbe {
-            label,
-            path: Some(format!("/workspace/{label}")),
-            state: "missing",
-            detail: "directory is missing".into(),
-        }
-    }
 }

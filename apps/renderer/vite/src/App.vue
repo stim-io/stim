@@ -1,49 +1,55 @@
 <script setup lang="ts">
 import { StimAppRoot, StimSplit } from "@stim-io/components";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 
+import AgentsSettings from "./agents/AgentsSettings.vue";
+import {
+  applyChatEvent,
+  createLiveChatModel,
+  dispatchChatEvent,
+  type ChatRendererEvent,
+} from "./components/im/liveChatModel";
 import MessagesPane from "./components/im/MessagesPane.vue";
 import SessionDrawer from "./components/im/SessionDrawer.vue";
-import {
-  createChatMessage,
-  initialLiveMessages,
-  previewForContent,
-  staticSessions,
-  textContent,
-} from "./components/im/sessionModel";
-import type { ChatMessage, SessionSummary } from "./components/im/types";
+import { previewForContent, staticSessions } from "./components/im/sessionModel";
+import type { SessionSummary } from "./components/im/types";
 import {
   fetchConversationTranscript,
-  sendFirstMessage,
-  type ConversationToolActivity,
-  type FirstMessageResponse,
-  type TranscriptMessage,
+  sendTextOperation,
 } from "./controller/client";
 import {
   fetchControllerRuntimeSnapshot,
   hasTauriHostRuntime,
   type ControllerRuntimeSnapshot,
 } from "./controller/runtime";
+import { rendererEventbus } from "./events/rootEventbus";
+import {
+  fetchChatParticipantSelection,
+  fetchRegisteredParticipants,
+  selectChatParticipant,
+  type RegisteredParticipant,
+} from "./server/agents";
 
 const activeConversationStorageKey = "stim.activeConversationId";
 const storedConversationId = readStoredConversationId();
+const liveChatModel = reactive(createLiveChatModel(storedConversationId));
+rendererEventbus.subscribeNamespace("chat", (event: ChatRendererEvent) => {
+  applyChatEvent(liveChatModel, event);
+});
 
 const draftText = ref("");
 const targetEndpointId = ref("endpoint-b");
 const controllerSnapshot = ref<ControllerRuntimeSnapshot | null>(null);
-const sendResult = ref<FirstMessageResponse | null>(null);
-const activeConversationId = ref<string | null>(storedConversationId);
-const liveMessages = ref<ChatMessage[]>(
-  storedConversationId ? [] : initialLiveMessages(),
-);
-const liveToolActivities = ref<ConversationToolActivity[]>([]);
 const activeSessionId = ref("live-controller");
+const activeSurface = ref<"messages" | "agents">("messages");
 const isSessionDrawerCollapsed = ref(false);
 const sessionQuery = ref("");
 const activeSessionScope = ref<"all" | "live" | "unread">("all");
-const errorMessage = ref<string | null>(null);
+const participantErrorMessage = ref<string | null>(null);
 const isLoading = ref(false);
-const optimisticMessageId = ref<string | null>(null);
+const isParticipantSelecting = ref(false);
+const registeredParticipants = ref<RegisteredParticipant[]>([]);
+const selectedParticipantId = ref<string | null>(null);
 
 const controllerStatus = computed(
   () => controllerSnapshot.value?.state ?? "unavailable",
@@ -52,9 +58,16 @@ const controllerAttached = computed(() => hasTauriHostRuntime());
 const controllerBaseUrl = computed(
   () => controllerSnapshot.value?.http_base_url ?? "not attached",
 );
+const selectedParticipant = computed(
+  () =>
+    registeredParticipants.value.find(
+      (participant) =>
+        participant.participant_id === selectedParticipantId.value,
+    ) ?? null,
+);
 
 const sessions = computed<SessionSummary[]>(() => {
-  const latestLiveMessage = liveMessages.value.at(-1);
+  const latestLiveMessage = liveChatModel.messages.at(-1);
 
   return [
     {
@@ -67,10 +80,10 @@ const sessions = computed<SessionSummary[]>(() => {
         : "Attach the Tauri desktop host to enable live controller roundtrips.",
       activityLabel: controllerStatus.value,
       unreadCount: 0,
-      participantLabel: "AI",
+      participantLabel: selectedParticipant.value?.display_label ?? "AI",
       live: controllerAttached.value,
-      messages: liveMessages.value,
-      toolActivities: liveToolActivities.value,
+      messages: liveChatModel.messages,
+      toolActivities: liveChatModel.toolActivities,
     },
     ...staticSessions,
   ];
@@ -113,6 +126,8 @@ const activeSession = computed(
 );
 
 onMounted(async () => {
+  void refreshParticipants();
+
   if (!controllerAttached.value) {
     return;
   }
@@ -120,31 +135,60 @@ onMounted(async () => {
   try {
     controllerSnapshot.value = await fetchControllerRuntimeSnapshot();
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : String(error);
+    dispatchChatEvent(rendererEventbus, "error.changed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 
-  if (activeConversationId.value) {
-    const conversationId = activeConversationId.value;
+  if (liveChatModel.activeConversationId) {
+    const conversationId = liveChatModel.activeConversationId;
     try {
       await reloadConversation(conversationId, { applyOnlyIfActive: true });
     } catch (error) {
-      if (activeConversationId.value === conversationId) {
-        activeConversationId.value = null;
-        clearStoredConversationId();
-        liveMessages.value = [];
-        liveToolActivities.value = [];
-        errorMessage.value = error instanceof Error ? error.message : String(error);
+      if (liveChatModel.activeConversationId === conversationId) {
+        dispatchChatEvent(rendererEventbus, "conversation.load-failed", {
+          conversation_id: conversationId,
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   }
 });
+
+watch(
+  () => liveChatModel.activeConversationId,
+  (conversationId) => {
+    if (conversationId) {
+      storeConversationId(conversationId);
+    } else {
+      clearStoredConversationId();
+    }
+  },
+);
+
+async function refreshParticipants() {
+  try {
+    const [participantsResponse, selectionResponse] = await Promise.all([
+      fetchRegisteredParticipants(),
+      fetchChatParticipantSelection(),
+    ]);
+    registeredParticipants.value = participantsResponse.participants;
+    selectedParticipantId.value = selectionResponse.selected_participant_id;
+    participantErrorMessage.value = null;
+  } catch (error) {
+    registeredParticipants.value = [];
+    selectedParticipantId.value = null;
+    participantErrorMessage.value =
+      error instanceof Error ? error.message : String(error);
+  }
+}
 
 async function handleSend() {
   if (!activeSession.value.live || !draftText.value.trim()) {
     return;
   }
 
-  errorMessage.value = null;
+  dispatchChatEvent(rendererEventbus, "error.changed", { message: null });
   isLoading.value = true;
   let roundtripCompleted = false;
 
@@ -152,48 +196,38 @@ async function handleSend() {
     controllerSnapshot.value = await fetchControllerRuntimeSnapshot();
     const sentDraft = draftText.value;
     const pendingId = `pending-${Date.now()}`;
-    optimisticMessageId.value = pendingId;
-    liveMessages.value.push(
-      createChatMessage(
-        pendingId,
-        "user",
-        "You",
-        "Now",
-        textContent(sentDraft),
-        {
-          deliveryState: "sending",
-        },
-      ),
-    );
+    dispatchChatEvent(rendererEventbus, "message.optimistic-created", {
+      message_id: pendingId,
+      text: sentDraft,
+    });
     draftText.value = "";
 
-    sendResult.value = await sendFirstMessage(
+    const terminalEvent = await sendTextOperation(
       sentDraft,
       targetEndpointId.value,
-      activeConversationId.value,
+      selectedParticipantId.value,
+      liveChatModel.activeConversationId,
+      (event) => {
+        dispatchChatEvent(rendererEventbus, "controller.operation-event", {
+          event,
+        });
+      },
     );
-    const sendResultValue = sendResult.value;
     roundtripCompleted = true;
-    activeConversationId.value = sendResultValue.conversation_id;
-    storeConversationId(sendResultValue.conversation_id);
-    applyRoundtripFallback(sendResultValue, pendingId);
-    optimisticMessageId.value = null;
-    await reloadConversation(sendResultValue.conversation_id);
+    if (!terminalEvent.snapshot && terminalEvent.conversation_id) {
+      await reloadConversation(terminalEvent.conversation_id);
+    }
     controllerSnapshot.value = await fetchControllerRuntimeSnapshot();
   } catch (error) {
-    if (optimisticMessageId.value && !roundtripCompleted) {
-      liveMessages.value = liveMessages.value.map((message) =>
-        message.id === optimisticMessageId.value
-          ? {
-              ...message,
-              deliveryState: "failed",
-              metaLabel: "Retry after controller recovers",
-            }
-          : message,
-      );
-      optimisticMessageId.value = null;
+    if (liveChatModel.optimisticMessageId && !roundtripCompleted) {
+      dispatchChatEvent(rendererEventbus, "message.delivery-failed", {
+        message_id: liveChatModel.optimisticMessageId,
+        meta_label: "Retry after controller recovers",
+      });
     }
-    errorMessage.value = error instanceof Error ? error.message : String(error);
+    dispatchChatEvent(rendererEventbus, "error.changed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
   } finally {
     isLoading.value = false;
   }
@@ -201,14 +235,23 @@ async function handleSend() {
 
 function handleNewConversation() {
   activeSessionId.value = "live-controller";
-  activeConversationId.value = null;
-  clearStoredConversationId();
-  liveMessages.value = [];
-  liveToolActivities.value = [];
-  sendResult.value = null;
-  errorMessage.value = null;
-  optimisticMessageId.value = null;
+  dispatchChatEvent(rendererEventbus, "conversation.reset", {});
   draftText.value = "";
+}
+
+async function handleSelectParticipant(participantId: string) {
+  participantErrorMessage.value = null;
+  isParticipantSelecting.value = true;
+  try {
+    const selection = await selectChatParticipant(participantId);
+    selectedParticipantId.value = selection.selected_participant_id;
+    await refreshParticipants();
+  } catch (error) {
+    participantErrorMessage.value =
+      error instanceof Error ? error.message : String(error);
+  } finally {
+    isParticipantSelecting.value = false;
+  }
 }
 
 async function reloadConversation(
@@ -216,58 +259,18 @@ async function reloadConversation(
   options: { applyOnlyIfActive?: boolean } = {},
 ) {
   const transcript = await fetchConversationTranscript(conversationId);
-  if (options.applyOnlyIfActive && activeConversationId.value !== conversationId) {
+  if (
+    options.applyOnlyIfActive &&
+    liveChatModel.activeConversationId !== conversationId
+  ) {
     return;
   }
 
-  activeConversationId.value = transcript.conversation_id;
-  storeConversationId(transcript.conversation_id);
-  liveMessages.value = transcript.messages.map(mapTranscriptMessage);
-  liveToolActivities.value = transcript.tool_activities;
-}
-
-function applyRoundtripFallback(response: FirstMessageResponse, pendingId: string) {
-  liveMessages.value = liveMessages.value.map((message) =>
-    message.id === pendingId
-      ? createChatMessage(
-          `${response.message_id}-user`,
-          "user",
-          "You",
-          "Now",
-          response.final_sent_content,
-          {
-            deliveryState: "sent",
-            metaLabel: "Delivered to controller",
-          },
-        )
-      : message,
-  );
-  liveMessages.value.push(
-    createChatMessage(
-      `${response.message_id}-assistant`,
-      "assistant",
-      "stim",
-      "Now",
-      response.response_content,
-      {
-        metaLabel: "Controller reply",
-      },
-    ),
-  );
-}
-
-function mapTranscriptMessage(message: TranscriptMessage): ChatMessage {
-  return createChatMessage(
-    message.id,
-    message.role,
-    message.author,
-    message.sent_at_label,
-    message.content,
-    {
-      deliveryState: message.delivery_state ?? undefined,
-      metaLabel: message.meta_label,
-    },
-  );
+  dispatchChatEvent(rendererEventbus, "transcript.loaded", {
+    conversation_id: transcript.conversation_id,
+    messages: transcript.messages,
+    tool_activities: transcript.tool_activities,
+  });
 }
 
 function readStoredConversationId() {
@@ -303,31 +306,40 @@ function clearStoredConversationId() {
         :collapsed="isSessionDrawerCollapsed"
         :controller-status="controllerStatus"
         :active-scope="activeSessionScope"
+        :active-surface="activeSurface"
         :session-query="sessionQuery"
         :sessions="visibleSessions"
         @new-conversation="handleNewConversation"
         @select="activeSessionId = $event"
         @toggle-collapse="isSessionDrawerCollapsed = !isSessionDrawerCollapsed"
         @update:active-scope="activeSessionScope = $event"
+        @update:active-surface="activeSurface = $event"
         @update:session-query="sessionQuery = $event"
       />
 
       <MessagesPane
-        :active-conversation-id="activeConversationId"
+        v-if="activeSurface === 'messages'"
+        :active-conversation-id="liveChatModel.activeConversationId"
         :controller-base-url="controllerBaseUrl"
         :controller-status="controllerStatus"
         :draft-text="draftText"
-        :error-message="errorMessage"
+        :error-message="liveChatModel.errorMessage"
         :is-loading="isLoading"
-        :last-final-sent-text="sendResult?.final_sent_text ?? null"
-        :last-response-source="sendResult?.response_text_source ?? null"
-        :last-response-text="sendResult?.response_text ?? null"
+        :last-final-sent-text="liveChatModel.lastFinalSentText"
+        :last-response-source="liveChatModel.lastResponseSource"
+        :last-response-text="liveChatModel.lastResponseText"
+        :is-participant-selecting="isParticipantSelecting"
+        :participant-error-message="participantErrorMessage"
+        :registered-participants="registeredParticipants"
+        :selected-participant-id="selectedParticipantId"
         :session="activeSession"
         :target-endpoint-id="targetEndpointId"
+        @select-participant="handleSelectParticipant"
         @send="handleSend"
         @update:draft-text="draftText = $event"
         @update:target-endpoint-id="targetEndpointId = $event"
       />
+      <AgentsSettings v-else />
     </StimSplit>
   </StimAppRoot>
 </template>

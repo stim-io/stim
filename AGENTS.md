@@ -16,6 +16,9 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - `stim/` work should start from real Agent-Native IM workflow slices that exercise the path through the app, controller/service boundaries, and `santi`; avoid isolated client wins that do not improve that loop.
 - Keep UI usable enough for daily workflow validation: reliable input, message display, reload/continuation, error visibility, and inspection. Defer visual polish unless it unlocks the core workflow.
 - Keep heavy communication, orchestration, and durable business logic behind server boundaries (`stim-server/` and `santi/`), not inside platform-specific client code.
+- `apps/agents/` is the carrier-agnostic local agent-instance management sidecar. It exposes a first-class HTTP service surface for web and operator clients; it orchestrates local `santi` instances, provider profile catalogs, secret handoff, and perception, while atomic provider/runtime/session/tool/memory capabilities stay in `santi`.
+- `apps/agents/` publishes local Santi discovery records plus instance registration and heartbeat facts to `stim-server`; those facts may project a product `participant_id`, but the agent/instance ids remain technical observability markers.
+- Chat surfaces should consume product-visible participants and selection events from `stim-server`, not renderer/controller-local active selection. Controller delivery may resolve the chosen `participant_id` through `stim-server` into a protocol endpoint id.
 - Treat Tauri as the desktop host/runtime boundary, not as the main product-logic home.
 - Keep the web app, Tauri host, and local runtime-control surfaces separated by explicit boundaries rather than convenience-driven mixing.
 - IPC/plugin commands are for local host control, discovery, diagnostics, and capability bridging; they must not become the primary business API surface.
@@ -50,18 +53,31 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Format workspace: `pnpm exec prettier --write .`
 - Check formatting: `pnpm exec prettier --check .`
 - Run repo guard: `pnpm run guard` (Rust fmt/controller-tool tests plus client and renderer typechecks)
+- Run codestyle attribute guard: `cargo run -p stim-guard -- check` or `pnpm run guard:style`
 - Detect standalone prerequisites and next-step hints: `stim-dev detect`
 - Run controller-owned machine acceptance for messaging: `stim-dev accept controller messaging [text]`
 - Run controller-owned machine acceptance for tool activity visibility: `stim-dev accept controller tool-activity [text]`
+- Run controller-owned machine acceptance for participant delivery routing: `stim-dev accept controller participant-routing [text]`
 - Smoke renderer-visible messaging send path: `stim-dev smoke renderer messaging [text]`
 - Smoke renderer-visible two-turn continuation path: `stim-dev smoke renderer continuation [text]`
 - Start full local app loop: `stim-dev start`
+- Start agents-focused loop: `stim-dev start agents`
 - Start controller-focused loop: `stim-dev start controller`
 - Start renderer-focused loop: `stim-dev start renderer`
 - Start Tauri-focused loop: `stim-dev start tauri`
 - Restart full local app loop: `stim-dev restart`
+- Restart agents-focused loop: `stim-dev restart agents`
 - Restart renderer-focused loop: `stim-dev restart renderer`
 - Inspect live runtime status: `stim-dev status`
+- Inspect agents runtime state: `stim-dev inspect agents runtime`
+- Inspect agents HTTP instance list: `stim-dev inspect agents instances`
+- Inspect agents profile catalog: `stim-dev inspect agents profiles`
+- Select the active agents HTTP instance: `stim-dev agents select <instance_id>`
+- Launch a managed Santi instance through agents HTTP orchestration: `stim-dev agents launch <instance_id>`
+- Stop a managed Santi instance launched by the current agents sidecar: `stim-dev agents stop <instance_id>`
+- Apply an agents-owned profile to Santi: `stim-dev agents apply-profile <instance_id> <profile_id>`
+- Trigger a fresh agents HTTP probe: `stim-dev inspect agents probe <instance_id>`
+- Trigger a focused agents provider probe: `stim-dev inspect agents provider-probe <instance_id>`
 - Inspect host/window state: `stim-dev inspect tauri host`
 - Inspect renderer landing state: `stim-dev inspect renderer landing`
 - Inspect renderer messaging state: `stim-dev inspect renderer messaging`
@@ -100,6 +116,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - `docs/architecture/desktop/tauri-boundary.md`: boundary between the Tauri host, web app, and local runtime/service processes
 - `docs/contracts/host/inspection.md`: host status and inspection boundary for `stim-dev`
 - `docs/contracts/controller/message-operation-events.md`: controller-owned message-operation event contract for local app-loop coverage and acceptance
+- `apps/agents/`: local agents sidecar HTTP service for `santi` instance management/perception
 - `apps/packaged/`: thin packaged/runtime launcher entry and packaged sidecar assembly plan
 - `apps/renderer/`: renderer delivery sidecar wrapper plus Vite app under `apps/renderer/vite/`
 - `crates/platform/`: platform primitive crate for path/process/network/env/lock/OS facts

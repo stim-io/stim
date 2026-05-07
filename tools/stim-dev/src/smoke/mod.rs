@@ -1,5 +1,5 @@
-mod assertions;
-mod renderer;
+pub(crate) mod assertions;
+pub(crate) mod renderer;
 
 pub(crate) fn smoke(args: Vec<String>) -> Result<(), String> {
     match args.as_slice() {
@@ -19,21 +19,5 @@ pub(crate) fn smoke(args: Vec<String>) -> Result<(), String> {
         [target, ..] => Err(format!(
             "unsupported smoke leaf under target '{target}'; supported leaves: renderer messaging [text], renderer continuation [text]"
         )),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::smoke;
-
-    #[test]
-    fn smoke_rejects_unknown_or_incomplete_leaves() {
-        assert!(smoke(Vec::new()).unwrap_err().contains("smoke requires"));
-        assert!(smoke(vec!["renderer".into()])
-            .unwrap_err()
-            .contains("smoke requires"));
-        assert!(smoke(vec!["tauri".into(), "messaging".into()])
-            .unwrap_err()
-            .contains("unsupported smoke leaf"));
     }
 }

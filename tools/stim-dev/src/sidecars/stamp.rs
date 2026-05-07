@@ -9,6 +9,15 @@ pub(super) fn renderer_stamp(namespace: &str) -> SidecarStamp {
     }
 }
 
+pub(super) fn agents_stamp(namespace: &str) -> SidecarStamp {
+    SidecarStamp {
+        app: "agents".into(),
+        namespace: namespace.into(),
+        mode: SidecarMode::Dev,
+        source: SOURCE_TOOL_STIM_DEV.into(),
+    }
+}
+
 pub(super) fn controller_stamp(namespace: &str) -> SidecarStamp {
     SidecarStamp {
         app: "controller".into(),

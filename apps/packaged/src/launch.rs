@@ -3,8 +3,8 @@ use crate::{
     cli::{RUN_RENDERER_COMMAND, RUN_TAURI_COMMAND},
     plan::{PackagedSidecarEntry, PackagedSidecarPlan},
     runner::{
-        spawn_controller_ready, spawn_runner_ready, spawn_runner_ready_with_env,
-        CONTROLLER_ENDPOINT_ENV, CONTROLLER_INSTANCE_ENV,
+        spawn_agents_ready, spawn_controller_ready, spawn_ready_with_env, spawn_runner_ready,
+        AGENTS_ENDPOINT_ENV, AGENTS_INSTANCE_ENV, CONTROLLER_ENDPOINT_ENV, CONTROLLER_INSTANCE_ENV,
     },
 };
 
@@ -20,6 +20,7 @@ pub(crate) fn launch_packaged_sidecar(plan: &PackagedSidecarPlan, app: &str) -> 
         .ok_or_else(|| format!("unknown packaged sidecar app: {app}"))?;
 
     match app {
+        "agents" => launch_agents(sidecar),
         "controller" => launch_controller(sidecar),
         "renderer" => launch_runner(RUN_RENDERER_COMMAND, sidecar),
         "tauri" => launch_runner(RUN_TAURI_COMMAND, sidecar),
@@ -43,6 +44,11 @@ fn launch_all(plan: &PackagedSidecarPlan) -> Result<(), String> {
         .iter()
         .find(|sidecar| sidecar.stamp.app == "controller")
         .ok_or_else(|| "packaged controller sidecar plan is missing".to_string())?;
+    let agents = plan
+        .sidecars
+        .iter()
+        .find(|sidecar| sidecar.stamp.app == "agents")
+        .ok_or_else(|| "packaged agents sidecar plan is missing".to_string())?;
     let mut children = Vec::new();
     let mut ready_lines = Vec::new();
 
@@ -60,6 +66,15 @@ fn launch_all(plan: &PackagedSidecarPlan) -> Result<(), String> {
     )?;
     ready_lines.push(renderer_ready);
 
+    let (agents_child, agents_ready) = spawn_agents_ready(agents)?;
+    children.push((agents.stamp.app.clone(), agents_child));
+    let agents_endpoint = agents_ready
+        .endpoint
+        .clone()
+        .ok_or_else(|| "packaged agents ready line did not include endpoint".to_string())?;
+    let agents_instance_id = agents_ready.instance_id.clone();
+    ready_lines.push(agents_ready);
+
     let (controller_child, controller_ready) = spawn_controller_ready(controller)?;
     children.push((controller.stamp.app.clone(), controller_child));
     let controller_endpoint = controller_ready
@@ -69,10 +84,12 @@ fn launch_all(plan: &PackagedSidecarPlan) -> Result<(), String> {
     let controller_instance_id = controller_ready.instance_id.clone();
     ready_lines.push(controller_ready);
 
-    let (tauri_child, tauri_ready) = spawn_runner_ready_with_env(
+    let (tauri_child, tauri_ready) = spawn_ready_with_env(
         RUN_TAURI_COMMAND,
         tauri,
         &[
+            (AGENTS_ENDPOINT_ENV, agents_endpoint.as_str()),
+            (AGENTS_INSTANCE_ENV, agents_instance_id.as_str()),
             (CONTROLLER_ENDPOINT_ENV, controller_endpoint.as_str()),
             (CONTROLLER_INSTANCE_ENV, controller_instance_id.as_str()),
         ],
@@ -88,6 +105,26 @@ fn launch_all(plan: &PackagedSidecarPlan) -> Result<(), String> {
     println!("{output}");
 
     wait_for_children(children)
+}
+
+fn launch_agents(sidecar: &PackagedSidecarEntry) -> Result<(), String> {
+    let (mut child, ready) = spawn_agents_ready(sidecar)?;
+
+    let output = serde_json::to_string(&ready)
+        .map_err(|error| format!("failed to serialize packaged agents ready line: {error}"))?;
+    println!("{output}");
+
+    let status = child
+        .wait()
+        .map_err(|error| format!("failed waiting for packaged agents sidecar: {error}"))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "packaged agents sidecar exited with status {status}"
+        ))
+    }
 }
 
 fn launch_controller(sidecar: &PackagedSidecarEntry) -> Result<(), String> {

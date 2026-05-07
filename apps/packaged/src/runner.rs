@@ -14,10 +14,35 @@ use stim_sidecar::{
 use crate::{clock::timestamp_now, plan::PackagedSidecarEntry};
 
 const CONTROLLER_BIN_ENV: &str = "STIM_CONTROLLER_BIN";
+const AGENTS_BIN_ENV: &str = "STIM_AGENTS_BIN";
+pub(crate) const AGENTS_ENDPOINT_ENV: &str = "STIM_AGENTS_ENDPOINT";
+pub(crate) const AGENTS_INSTANCE_ENV: &str = "STIM_AGENTS_INSTANCE_ID";
 pub(crate) const CONTROLLER_ENDPOINT_ENV: &str = "STIM_CONTROLLER_ENDPOINT";
 pub(crate) const CONTROLLER_INSTANCE_ENV: &str = "STIM_CONTROLLER_INSTANCE_ID";
 const CONTROLLER_READY_TIMEOUT: Duration = Duration::from_secs(30);
+const AGENTS_READY_TIMEOUT: Duration = Duration::from_secs(30);
 const RUNNER_READY_TIMEOUT: Duration = Duration::from_secs(120);
+
+pub(crate) fn spawn_agents_ready(
+    sidecar: &PackagedSidecarEntry,
+) -> Result<(std::process::Child, SidecarReadyLine), String> {
+    let mut command = agents_command(&sidecar.stamp_args);
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .map_err(|error| format!("failed to spawn packaged agents sidecar: {error}"))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "packaged agents sidecar stdout was not piped".to_string())?;
+    let ready = wait_for_ready_line(stdout, AGENTS_READY_TIMEOUT)
+        .map_err(|error| format!("packaged agents ready failed: {error}"))?;
+
+    validate_ready(sidecar, &ready)?;
+
+    Ok((child, ready))
+}
 
 pub(crate) fn spawn_controller_ready(
     sidecar: &PackagedSidecarEntry,
@@ -44,10 +69,10 @@ pub(crate) fn spawn_runner_ready(
     command_name: &str,
     sidecar: &PackagedSidecarEntry,
 ) -> Result<(std::process::Child, SidecarReadyLine), String> {
-    spawn_runner_ready_with_env(command_name, sidecar, &[])
+    spawn_ready_with_env(command_name, sidecar, &[])
 }
 
-pub(crate) fn spawn_runner_ready_with_env(
+pub(crate) fn spawn_ready_with_env(
     command_name: &str,
     sidecar: &PackagedSidecarEntry,
     envs: &[(&str, &str)],
@@ -125,6 +150,50 @@ pub(crate) fn run_renderer_sidecar(args: Vec<String>) -> Result<(), String> {
     }
 }
 
+pub(crate) fn run_agents_sidecar(args: Vec<String>) -> Result<(), String> {
+    let stamp = read_stamp(&args).map_err(|error| format!("invalid agents stamp: {error}"))?;
+    let stamp_args = create_stamp_args(&stamp);
+    let mut command = Command::new("cargo");
+    command
+        .args(["run", "-p", "stim-agents", "--", "serve"])
+        .args(&stamp_args)
+        .current_dir(workspace_root())
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit());
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("failed to spawn packaged agents server: {error}"))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "packaged agents server stdout was not piped".to_string())?;
+    let ready = wait_for_ready_line(stdout, RUNNER_READY_TIMEOUT)
+        .map_err(|error| format!("packaged agents server ready failed: {error}"))?;
+    let expected = PackagedSidecarEntry {
+        stamp: stamp.clone(),
+        role: "agents-runtime".into(),
+        instance_id: String::new(),
+        stamp_args,
+    };
+    validate_ready(&expected, &ready)?;
+    let output = serde_json::to_string(&ready)
+        .map_err(|error| format!("failed to serialize agents ready line: {error}"))?;
+    println!("{output}");
+
+    let status = child
+        .wait()
+        .map_err(|error| format!("failed waiting for packaged agents server: {error}"))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "packaged agents server exited with status {status}"
+        ))
+    }
+}
+
 pub(crate) fn run_tauri_sidecar(args: Vec<String>) -> Result<(), String> {
     let stamp = read_stamp(&args).map_err(|error| format!("invalid tauri stamp: {error}"))?;
     let mut child = Command::new("cargo")
@@ -196,6 +265,24 @@ fn controller_command(stamp_args: &[String]) -> Command {
 
     command
         .args(["run", "-p", "stim-controller", "--", "serve"])
+        .args(stamp_args)
+        .current_dir(workspace_root());
+
+    command
+}
+
+fn agents_command(stamp_args: &[String]) -> Command {
+    if let Ok(binary) = env::var(AGENTS_BIN_ENV) {
+        let mut command = Command::new(binary);
+
+        command.arg("serve").args(stamp_args);
+        return command;
+    }
+
+    let mut command = Command::new("cargo");
+
+    command
+        .args(["run", "-p", "stim-agents", "--", "serve"])
         .args(stamp_args)
         .current_dir(workspace_root());
 
