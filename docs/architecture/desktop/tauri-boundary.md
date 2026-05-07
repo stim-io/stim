@@ -125,6 +125,8 @@ For sidecar-backed local services, apply this split strictly:
 
 Do not use IPC as a shortcut business API between the web app and a local sidecar service.
 
+Agents management follows this rule. The Tauri host may expose the current `agents` endpoint, but the renderer should use the `agents` HTTP API for `santi` instance management/perception, including active instance selection.
+
 Controller message-operation events follow this rule. The Tauri host may expose the current controller endpoint, but the renderer and `stim-dev` should use the controller WebSocket for message-operation commands and events. See `../../contracts/controller/message-operation-events.md`.
 
 ## Sidecar/runtime rule
@@ -133,6 +135,8 @@ If local sidecars or helper processes are used, keep their boundary explicit.
 
 For `stim`, the controller should be treated as a Tauri-local sidecar/runtime component rather than as a separate long-term service form.
 Do not spend design effort on promoting controller into an independently managed runtime shape inside this project.
+
+The `agents` sidecar is different: it is a local HTTP service sidecar for managing/perceiving local `santi` instances. That makes it an app/service boundary, but not an owner of `santi` runtime semantics.
 
 The sidecar-mode name is reserved for launcher-owned sidecar instance mode. Its values are only `dev` and `runtime`. Do not use `runtime-mode` for this concept.
 
@@ -158,12 +162,16 @@ Current implementation stance:
 
 - Tauri creates the main window in code and loads the renderer URL from the mode-separated renderer-delivery launch bridge, falling back to the local renderer dev URL only when that bridge is absent.
 - Tauri starts the local controller through a stamped `stim-controller serve` sidecar process.
+- Tauri starts or attaches to the local `agents` sidecar through a stamped `stim-agents serve` sidecar process.
 - In development, Tauri may launch that process through `cargo run -p stim-controller -- serve ...`; `STIM_CONTROLLER_BIN` can override this with a direct binary path.
+- In development, Tauri may launch `agents` through `cargo run -p stim-agents -- serve ...`; `STIM_AGENTS_BIN` can override this with a direct binary path.
 - Tauri defaults its controller child to `sidecar-mode=dev`, but packaged launch can set `STIM_SIDECAR_MODE=runtime` so the hosted controller joins the runtime composition.
-- Packaged launch can also set `STIM_CONTROLLER_ENDPOINT` and `STIM_CONTROLLER_INSTANCE_ID`; in that mode Tauri attaches to the externally launched controller instead of spawning a child.
+- Packaged launch can also set `STIM_AGENTS_ENDPOINT` / `STIM_AGENTS_INSTANCE_ID` and `STIM_CONTROLLER_ENDPOINT` / `STIM_CONTROLLER_INSTANCE_ID`; in that mode Tauri attaches to externally launched sidecars instead of spawning children.
 - Renderer delivery is owned by `stim-renderer`; launchers write only the renderer URL handoff under `.tmp/sidecars/<sidecar-mode>/<namespace>/bridges/renderer-delivery/launch.json`.
 - The controller sidecar emits a ready line with its live role, instance id, and HTTP endpoint.
+- The agents sidecar emits a ready line with its live role, instance id, and HTTP endpoint.
 - Tauri keeps either an owned child handle or an attached endpoint and generates controller runtime responses from that live runtime relationship.
+- Tauri keeps either an owned agents child handle or an attached agents endpoint and generates agents runtime responses from that live runtime relationship.
 - No runtime truth is stored in a state file.
 - Controller-owned message-operation events are controller service-plane events, not Tauri IPC events. Tauri owns discovery of the local controller relationship; the controller owns the operation event stream.
 

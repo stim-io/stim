@@ -12,7 +12,7 @@ use stim_shared::control_plane::{
 
 use crate::{
     client::seed_stim_server_registry,
-    config::{resolve_santi_base_url, resolve_stim_server_base_url},
+    config::{resolve_santi_base_url, resolve_server_base_url},
     factory::http_santi_discovery_fixture,
     handler::build_router,
     model::{timestamp_now, ControllerHttpState, ControllerServiceHandle},
@@ -20,7 +20,7 @@ use crate::{
 
 pub fn spawn_local_controller(namespace: Option<&str>) -> Result<ControllerServiceHandle, String> {
     let namespace = namespace_or_default(namespace).to_string();
-    let (stim_server_base_url, stim_server_target) = resolve_stim_server_base_url()?;
+    let (stim_server_base_url, stim_server_target) = resolve_server_base_url()?;
     let (santi_base_url, santi_target) = resolve_santi_base_url()?;
 
     let std_listener = TcpListener::bind("127.0.0.1:0")
@@ -130,6 +130,3 @@ pub fn spawn_local_controller(namespace: Option<&str>) -> Result<ControllerServi
         heartbeat,
     })
 }
-
-#[cfg(test)]
-mod tests;

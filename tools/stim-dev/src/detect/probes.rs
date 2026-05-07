@@ -5,10 +5,10 @@ use serde::Serialize;
 use crate::control::stamped_processes_for_namespace;
 
 #[derive(Serialize)]
-pub(super) struct RootWorkspaceProbe {
-    pub(super) state: &'static str,
-    pub(super) path: Option<String>,
-    pub(super) compose_file: PathProbe,
+pub(crate) struct RootWorkspaceProbe {
+    pub(crate) state: &'static str,
+    pub(crate) path: Option<String>,
+    pub(crate) compose_file: PathProbe,
 }
 
 impl RootWorkspaceProbe {
@@ -42,8 +42,8 @@ impl RootWorkspaceProbe {
 }
 
 #[derive(Serialize)]
-pub(super) struct FileProbes {
-    pub(super) santi_link_auth: PathProbe,
+pub(crate) struct FileProbes {
+    pub(crate) santi_link_auth: PathProbe,
 }
 
 impl FileProbes {
@@ -64,11 +64,11 @@ impl FileProbes {
 }
 
 #[derive(Serialize)]
-pub(super) struct PathProbe {
-    pub(super) label: &'static str,
-    pub(super) path: Option<String>,
-    pub(super) state: &'static str,
-    pub(super) detail: String,
+pub(crate) struct PathProbe {
+    pub(crate) label: &'static str,
+    pub(crate) path: Option<String>,
+    pub(crate) state: &'static str,
+    pub(crate) detail: String,
 }
 
 impl PathProbe {
@@ -85,7 +85,7 @@ impl PathProbe {
         }
     }
 
-    pub(super) fn missing(label: &'static str, path: Option<PathBuf>, detail: &str) -> Self {
+    pub(crate) fn missing(label: &'static str, path: Option<PathBuf>, detail: &str) -> Self {
         Self {
             label,
             path: path.map(|path| path.to_string_lossy().to_string()),
@@ -109,12 +109,12 @@ impl PathProbe {
 }
 
 #[derive(Serialize)]
-pub(super) struct AppLoopProbe {
-    pub(super) state: &'static str,
-    pub(super) detail: String,
-    pub(super) stamped_process_count: usize,
-    pub(super) stamped_processes: Vec<ProcessProbe>,
-    pub(super) residue: AppLoopResidueProbe,
+pub(crate) struct AppLoopProbe {
+    pub(crate) state: &'static str,
+    pub(crate) detail: String,
+    pub(crate) stamped_process_count: usize,
+    pub(crate) stamped_processes: Vec<ProcessProbe>,
+    pub(crate) residue: AppLoopResidueProbe,
 }
 
 impl AppLoopProbe {
@@ -175,17 +175,17 @@ impl AppLoopProbe {
 }
 
 #[derive(Serialize)]
-pub(super) struct ProcessProbe {
-    pid: u32,
-    ppid: u32,
-    command: String,
+pub(crate) struct ProcessProbe {
+    pub(crate) pid: u32,
+    pub(crate) ppid: u32,
+    pub(crate) command: String,
 }
 
 #[derive(Serialize)]
-pub(super) struct AppLoopResidueProbe {
-    pub(super) bridges: PathProbe,
-    pub(super) logs: PathProbe,
-    pub(super) locks: PathProbe,
+pub(crate) struct AppLoopResidueProbe {
+    pub(crate) bridges: PathProbe,
+    pub(crate) logs: PathProbe,
+    pub(crate) locks: PathProbe,
 }
 
 impl AppLoopResidueProbe {
@@ -209,26 +209,11 @@ impl AppLoopResidueProbe {
     }
 }
 
-pub(super) fn attached_root_candidate(stim_root: &Path) -> Option<PathBuf> {
+pub(crate) fn attached_root_candidate(stim_root: &Path) -> Option<PathBuf> {
     let modules_dir = stim_root.parent()?;
     if modules_dir.file_name()? != "modules" {
         return None;
     }
 
     modules_dir.parent().map(Path::to_path_buf)
-}
-
-#[cfg(test)]
-mod tests {
-    use std::path::Path;
-
-    use super::attached_root_candidate;
-
-    #[test]
-    fn detects_attached_root_from_modules_stim_path() {
-        let root = attached_root_candidate(Path::new("/workspace/modules/stim")).unwrap();
-
-        assert_eq!(root, Path::new("/workspace"));
-        assert!(attached_root_candidate(Path::new("/workspace/stim")).is_none());
-    }
 }

@@ -9,10 +9,11 @@ The controller event layer exists to cover, debug, and accept the user's local o
 It should make `stim-dev` and the renderer able to observe a complete operation path:
 
 - command accepted or rejected
+- delivery target resolved from direct endpoint or server-owned participant selection
 - conversation selected or created
 - user message operation applied locally
 - delivery or runtime dependency invoked
-- assistant response observed
+- assistant response chunks observed after product-ledger chunk append
 - transcript/projection ready
 - runtime tool activity observed when `santi` reports tool calls/results for the conversation
 - failure stage and diagnostic detail reported
@@ -55,8 +56,18 @@ Every controller operation event should carry enough identity to support determi
 - `stage`
 - `status`
 - `occurred_at`
+- `references[]` for explicit product, runtime, protocol, participant,
+  endpoint, or controller-projection references
+- `message_delta` only for streaming message chunk events that already have a
+  corresponding product-ledger chunk reference
 
 External product-ledger ids and `santi` runtime ids should be explicit references. Do not assume the controller's local ids are durable `stim-server` product ids.
+
+When a controller event correlates to a shared message-ledger fact, use explicit
+`stim-proto` references such as `ledger_id`, `fact_id`, `message_id`,
+`content_id`, `revision_id`, `correlation_id`, and `causation_id`. The
+controller may report that a product or runtime fact was observed, resolved, or
+forwarded, but it must not mint product-ledger truth locally.
 
 ## Command rule
 
@@ -71,7 +82,7 @@ Good command examples:
 
 The current minimal command set is:
 
-- `send-text`: send a text operation to a target endpoint, optionally continuing a named conversation
+- `send-text`: send a text operation to a direct target endpoint or selected participant, optionally continuing a named conversation
 - `load-transcript`: load a controller transcript snapshot for a named conversation
 
 Poor command examples:
@@ -89,6 +100,8 @@ UI actions may produce controller commands, but the controller contract should d
 The current local acceptance command is:
 
 - `stim-dev accept controller messaging [text]`
+- `stim-dev accept controller participant-routing [text]`
+- `stim-dev accept controller tool-activity [text]`
 
 It should prove conversation continuation, not only first-send transport: create/send the first turn, restart/reload the transcript, send a second turn into the same conversation asking the assistant to quote the prior user text, restart/reload again, then assert both user turns, assistant replies, and the final assistant's reference to the prior user text are present.
 
@@ -114,6 +127,15 @@ Controller events may include observations such as:
 Those observations are valuable for local coverage, but they are not product IM ledger facts.
 
 Product ledger facts such as durable message operation, delivery state, participant state, and read state belong to `stim-server` once that ledger exists. Link the layers through explicit references, not by copying controller debug events into the product ledger.
+
+When a send operation names a `participant_id`, controller should resolve it through `stim-server` participant delivery-target APIs and emit a `delivery-target-resolved` event before `delivery-started`. That resolution event is local process observability; the participant selection and delivery-target projection remain `stim-server` facts.
+
+For streamed assistant output, controller should append the received text delta
+to the `stim-server` product message first, then emit
+`message-chunk-appended` with `message_delta` and a
+`ProductMessageFact` reference to the accepted chunk event. Renderer may project
+that event into its Vue model for live display, but the product message chunk
+remains the durable product truth.
 
 ## Anti-patterns
 

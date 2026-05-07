@@ -40,6 +40,7 @@ When `stim` grows into a real client repo, prefer a shape recognizable along the
 ```txt
 stim/
   apps/
+    agents/
     renderer/
       vite/
     tauri/
@@ -55,6 +56,7 @@ stim/
 ```
 
 - `apps/renderer/` is the renderer delivery boundary: the Rust wrapper lives at the boundary root, while the product Vite app lives under `apps/renderer/vite/`
+- `apps/agents/` is the local agent-instance management sidecar boundary; it publishes agent/instance observability facts and participant projection inputs to `stim-server`, while product chat selection is keyed by server-owned `participant_id`
 - `apps/tauri/` is the desktop host shell boundary
 - `apps/controller/` is the local controller/runtime boundary
 - `apps/packaged/` is the thin packaged/runtime launcher boundary
@@ -229,6 +231,46 @@ Small product-local composition leftovers may stay in `stim` when they are clear
 Do not promote those leftovers into shared primitives automatically.
 
 Promote them only when repeated pressure shows that the same concern is reappearing across screens or message-card compositions.
+
+## `apps/agents/` ownership
+
+`apps/agents/` owns the local agent-instance management sidecar.
+
+It is a first-class HTTP service sidecar, following the same basic service-surface method as `stim-server`: `/api/v1` routes, JSON responses, explicit error envelopes, and OpenAPI documentation.
+
+It may:
+
+- publish local `santi` instance snapshots for web and operator clients
+- probe `santi` health, non-secret service/profile/runtime/provider facts, current effective config facts, and Santi-owned provider/gateway reachability through `santi` HTTP APIs
+- orchestrate local `santi` lifecycle and active endpoint selection
+- own carrier-agnostic Santi profile catalogs and secret handoff for provider/profile switching orchestration, while applying those profiles through Santi-owned HTTP config atoms
+- publish Santi protocol discovery records to `stim-server`
+- publish registered-agent projections to `stim-server` through registration and heartbeat requests
+- expose management actions to the web app and `stim-dev` through HTTP service contracts
+
+Configured `santi` instances enter through the `apps/agents/` service boundary. The fallback single-instance path uses `STIM_AGENTS_SANTI_BASE_URL` / `SANTI_BASE_URL` plus optional label/profile/participant/delivery-endpoint environment, while multi-instance local loops can provide `STIM_AGENTS_SANTI_INSTANCES_JSON` as an array of `{ id, endpoint, label?, profile?, managed?, agent_id?, participant_id?, delivery_endpoint_id?, launch? }`.
+
+Managed launch is explicit orchestration. `launch` may provide `{ command, args?, cwd?, env? }`; the agents sidecar may spawn and stop that local process tree, but the resulting runtime/provider/session/tool/memory semantics still belong to the launched `santi` HTTP service.
+
+Provider profile catalogs and secret handoff belong to the agents sidecar rather than the Stim IM controller. A single `santi` soul can serve sessions carried by Stim, Feishu, Slack, local conversations, and other message carriers, so provider/profile orchestration must stay carrier-agnostic. Renderer code may choose a `profile_id` through an agents HTTP action, but must never send raw API keys or provider configs.
+
+That configuration and the current active instance selection are agents-sidecar concerns. Renderer code and `stim-dev` may observe and request explicit actions through the agents HTTP API, but they must not maintain their own instance registry or active-selection state.
+
+Chat routing should not read the local active instance as durable product truth. `stim-agents` publishes available agent instances and their delivery endpoints to `stim-server`; chat surfaces should choose product-visible participants from `stim-server` state, and controller delivery should resolve the selected `participant_id` through `stim-server`.
+
+It should not:
+
+- own `santi` provider/runtime/session/tool/memory atomic semantics
+- make the renderer or Stim IM controller own Santi provider profiles, API keys, or carrier-agnostic agent configuration
+- become the message-operation controller
+- store durable product IM ledger facts
+- become the product registered-agent source of truth
+- become a hidden data-management layer for the web app
+- move root workspace attachment assumptions into the child repo
+
+The renderer may use Tauri only to discover the current `agents` sidecar endpoint. It should then call the `agents` HTTP service directly for agent-instance management views and actions.
+
+The web app remains a renderer and service client: it renders state returned by `agents` and submits explicit actions, but it must not become the owner of agent-instance data management.
 
 ## `apps/tauri/` ownership
 

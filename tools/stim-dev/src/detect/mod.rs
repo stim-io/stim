@@ -2,10 +2,10 @@ use serde::Serialize;
 
 use crate::{control::current_namespace, shared::clock::timestamp_now};
 
-mod hints;
-mod http;
-mod probes;
-mod services;
+pub(crate) mod hints;
+pub(crate) mod http;
+pub(crate) mod probes;
+pub(crate) mod services;
 
 use hints::{operation_hints, summarize, DetectSummary};
 use probes::{AppLoopProbe, FileProbes, RootWorkspaceProbe};

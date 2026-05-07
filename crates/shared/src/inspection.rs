@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::control_plane::{ControllerRuntimeHeartbeat, ControllerRuntimeSnapshot};
+use crate::control_plane::{
+    AgentsRuntimeHeartbeat, AgentsRuntimeSnapshot, ControllerRuntimeHeartbeat,
+    ControllerRuntimeSnapshot,
+};
 
 pub const RENDERER_PROBE_REQUEST_EVENT: &str = "stim://inspection/renderer-probe-request";
 pub const RENDERER_PROBE_RESPONSE_EVENT: &str = "stim://inspection/renderer-probe-response";
@@ -34,6 +37,21 @@ pub struct ControllerRuntimeBridgeResponse {
     pub responded_at: String,
     pub snapshot: ControllerRuntimeSnapshot,
     pub heartbeat: ControllerRuntimeHeartbeat,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentsRuntimeBridgeRequest {
+    pub request_id: String,
+    pub requested_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentsRuntimeBridgeResponse {
+    pub request_id: String,
+    pub requested_at: String,
+    pub responded_at: String,
+    pub snapshot: AgentsRuntimeSnapshot,
+    pub heartbeat: AgentsRuntimeHeartbeat,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

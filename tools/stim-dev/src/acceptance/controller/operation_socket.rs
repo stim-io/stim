@@ -54,9 +54,45 @@ pub(super) fn execute_send_text(
     conversation_id: Option<&str>,
     label: &str,
 ) -> Result<(Vec<ControllerOperationEvent>, ControllerOperationSnapshot), String> {
+    execute_send_text_command(
+        controller_endpoint,
+        text,
+        "endpoint-b",
+        None,
+        conversation_id,
+        label,
+    )
+}
+
+pub(super) fn execute_participant_send(
+    controller_endpoint: &str,
+    text: &str,
+    participant_id: &str,
+    conversation_id: Option<&str>,
+    label: &str,
+) -> Result<(Vec<ControllerOperationEvent>, ControllerOperationSnapshot), String> {
+    execute_send_text_command(
+        controller_endpoint,
+        text,
+        "participant-resolution-fallback",
+        Some(participant_id.to_string()),
+        conversation_id,
+        label,
+    )
+}
+
+fn execute_send_text_command(
+    controller_endpoint: &str,
+    text: &str,
+    target_endpoint_id: &str,
+    participant_id: Option<String>,
+    conversation_id: Option<&str>,
+    label: &str,
+) -> Result<(Vec<ControllerOperationEvent>, ControllerOperationSnapshot), String> {
     let command = command_envelope(ControllerOperationCommand::SendText {
         text: text.into(),
-        target_endpoint_id: "endpoint-b".into(),
+        target_endpoint_id: target_endpoint_id.into(),
+        participant_id,
         conversation_id: conversation_id.map(str::to_string),
     });
     let events = execute_operation_command(controller_endpoint, &command)?;
@@ -136,7 +172,7 @@ fn apply_operation_read_timeout(
         .map_err(|error| format!("failed to configure controller operation read timeout: {error}"))
 }
 
-fn require_completed_snapshot(
+pub(crate) fn require_completed_snapshot(
     events: &[ControllerOperationEvent],
     label: &str,
 ) -> Result<ControllerOperationSnapshot, String> {
@@ -171,7 +207,7 @@ fn require_completed_snapshot(
         .ok_or_else(|| format!("{label} completed without controller snapshot"))
 }
 
-fn controller_operation_ws_url(controller_endpoint: &str) -> Result<String, String> {
+pub(crate) fn controller_operation_ws_url(controller_endpoint: &str) -> Result<String, String> {
     let endpoint = controller_endpoint.trim().trim_end_matches('/');
     if let Some(rest) = endpoint.strip_prefix("http://") {
         return Ok(format!("ws://{rest}/api/v1/controller/operations/ws"));
@@ -195,49 +231,4 @@ pub(super) fn stop_result_json(
         "forced_pids": result.forced_pids,
         "remaining_pids": result.remaining_pids,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use stim_shared::message_operation::{
-        ControllerOperationEvent, ControllerOperationStage, ControllerOperationStatus,
-        CONTROLLER_MESSAGE_OPERATION_SCHEMA_VERSION,
-    };
-
-    use super::{controller_operation_ws_url, require_completed_snapshot};
-
-    #[test]
-    fn controller_operation_ws_url_uses_service_transport() {
-        assert_eq!(
-            controller_operation_ws_url("http://127.0.0.1:18000").unwrap(),
-            "ws://127.0.0.1:18000/api/v1/controller/operations/ws"
-        );
-        assert_eq!(
-            controller_operation_ws_url("https://example.test/controller/").unwrap(),
-            "wss://example.test/controller/api/v1/controller/operations/ws"
-        );
-        assert!(controller_operation_ws_url("file:///tmp/socket").is_err());
-    }
-
-    #[test]
-    fn failed_terminal_event_fails_acceptance() {
-        let events = vec![ControllerOperationEvent {
-            schema_version: CONTROLLER_MESSAGE_OPERATION_SCHEMA_VERSION,
-            event_id: "event-1".into(),
-            operation_id: "op-1".into(),
-            correlation_id: "corr-1".into(),
-            causation_id: None,
-            conversation_id: None,
-            message_id: None,
-            stage: ControllerOperationStage::OperationFailed,
-            status: ControllerOperationStatus::Failed,
-            occurred_at: "2026-05-04T00:00:00Z".into(),
-            detail: Some("boom".into()),
-            snapshot: None,
-        }];
-
-        assert!(require_completed_snapshot(&events, "send-text")
-            .unwrap_err()
-            .contains("boom"));
-    }
 }

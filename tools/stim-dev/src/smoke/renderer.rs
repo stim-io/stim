@@ -8,18 +8,18 @@ use stim_shared::inspection::{
 use crate::{
     control::current_namespace,
     shared::{
-        bridge::{request_controller_runtime_with_timeout, request_renderer_action},
+        bridge::{request_controller_runtime, request_renderer_action},
         clock::timestamp_now,
     },
 };
 
 use super::assertions::assert_renderer_message_state;
 
-pub(super) const CONTINUATION_FOLLOWUP_TEXT: &str =
+pub(crate) const CONTINUATION_FOLLOWUP_TEXT: &str =
     "What exact text did I send in my previous user message? Quote it verbatim.";
 
 pub(super) fn smoke_continuation(text: Option<String>) -> Result<(), String> {
-    let controller_runtime = require_running_controller_for_renderer_smoke()?;
+    let controller_runtime = require_running_controller()?;
     let marker_text = text
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
@@ -73,7 +73,7 @@ pub(super) fn smoke_continuation(text: Option<String>) -> Result<(), String> {
 }
 
 pub(super) fn smoke_messaging(text: Option<String>) -> Result<(), String> {
-    let controller_runtime = require_running_controller_for_renderer_smoke()?;
+    let controller_runtime = require_running_controller()?;
     let text = text
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
@@ -106,9 +106,9 @@ pub(super) fn smoke_messaging(text: Option<String>) -> Result<(), String> {
     Ok(())
 }
 
-fn require_running_controller_for_renderer_smoke(
+fn require_running_controller(
 ) -> Result<stim_shared::inspection::ControllerRuntimeBridgeResponse, String> {
-    request_controller_runtime_with_timeout(Duration::from_secs(5)).map_err(|error| {
+    request_controller_runtime(Duration::from_secs(5)).map_err(|error| {
         format!(
             "renderer smoke requires a running app loop; run 'stim-dev detect' and 'stim-dev restart' first: {error}"
         )
@@ -143,12 +143,7 @@ fn require_messaging_send_snapshot(
     }
 }
 
-#[cfg(test)]
-fn action_result_passed(result: &RendererActionResult) -> bool {
-    matches!(result, RendererActionResult::Success { .. })
-}
-
-fn action_result_json(result: RendererActionResult) -> serde_json::Value {
+pub(crate) fn action_result_json(result: RendererActionResult) -> serde_json::Value {
     match result {
         RendererActionResult::Success { snapshot } => {
             serde_json::json!({ "state": "passed", "snapshot": snapshot })
@@ -166,32 +161,5 @@ fn action_failure_reason_name(reason: RendererActionFailureReason) -> &'static s
         RendererActionFailureReason::NoMainWindow => "no-main-window",
         RendererActionFailureReason::ActionFailed => "action-failed",
         RendererActionFailureReason::ActionTimedOut => "action-timed-out",
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-    use stim_shared::inspection::{RendererActionFailureReason, RendererActionResult};
-
-    use super::{action_result_json, action_result_passed};
-
-    #[test]
-    fn failed_renderer_action_reports_kebab_case_reason() {
-        let failure = RendererActionResult::Failure {
-            reason: RendererActionFailureReason::ActionTimedOut,
-            detail: Some("timed out".into()),
-        };
-        let output = action_result_json(failure.clone());
-
-        assert_eq!(
-            output,
-            json!({
-                "state": "failed",
-                "reason": "action-timed-out",
-                "detail": "timed out",
-            })
-        );
-        assert!(!action_result_passed(&failure));
     }
 }

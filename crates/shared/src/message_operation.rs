@@ -16,6 +16,7 @@ pub enum ControllerOperationCommand {
     SendText {
         text: String,
         target_endpoint_id: String,
+        participant_id: Option<String>,
         conversation_id: Option<String>,
     },
     LoadTranscript {
@@ -36,14 +37,47 @@ pub struct ControllerOperationEvent {
     pub status: ControllerOperationStatus,
     pub occurred_at: String,
     pub detail: Option<String>,
+    #[serde(default)]
+    pub references: Vec<ControllerOperationReference>,
+    pub message_delta: Option<ControllerOperationMessageDelta>,
     pub snapshot: Option<ControllerOperationSnapshot>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ControllerOperationReference {
+    pub reference_kind: ControllerOperationReferenceKind,
+    pub ledger_id: Option<String>,
+    pub fact_id: Option<String>,
+    pub message_id: Option<String>,
+    pub content_id: Option<String>,
+    pub revision_id: Option<String>,
+    pub relation_id: Option<String>,
+    pub participant_id: Option<String>,
+    pub endpoint_id: Option<String>,
+    pub envelope_id: Option<String>,
+    pub reply_id: Option<String>,
+    pub detail: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ControllerOperationReferenceKind {
+    ProductMessageFact,
+    SantiImFact,
+    SantiRuntimeFact,
+    ProtocolEnvelope,
+    Participant,
+    DeliveryEndpoint,
+    ControllerProjection,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ControllerOperationStage {
     CommandAccepted,
+    DeliveryTargetResolved,
     DeliveryStarted,
+    MessageChunkAppended,
     ConversationSelected,
     DeliveryCompleted,
     TranscriptLoaded,
@@ -84,6 +118,13 @@ pub struct ControllerOperationMessage {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ControllerOperationMessageDelta {
+    pub message_id: String,
+    pub role: String,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ControllerOperationToolActivity {
     pub tool_call_id: String,
     pub tool_name: String,
@@ -105,53 +146,5 @@ impl ControllerOperationEvent {
             ControllerOperationStage::OperationCompleted
                 | ControllerOperationStage::OperationFailed
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        ControllerOperationCommand, ControllerOperationCommandEnvelope, ControllerOperationEvent,
-        ControllerOperationStage, ControllerOperationStatus,
-        CONTROLLER_MESSAGE_OPERATION_SCHEMA_VERSION,
-    };
-
-    #[test]
-    fn command_envelope_uses_operation_shaped_tags() {
-        let command = ControllerOperationCommandEnvelope {
-            schema_version: CONTROLLER_MESSAGE_OPERATION_SCHEMA_VERSION,
-            operation_id: "op-1".into(),
-            correlation_id: "corr-1".into(),
-            command: ControllerOperationCommand::SendText {
-                text: "hello".into(),
-                target_endpoint_id: "endpoint-b".into(),
-                conversation_id: None,
-            },
-        };
-
-        let encoded = serde_json::to_value(&command).unwrap();
-
-        assert_eq!(encoded["command"]["command"], "send-text");
-        assert_eq!(encoded["schema_version"], 1);
-    }
-
-    #[test]
-    fn terminal_events_are_named_by_stage() {
-        let event = ControllerOperationEvent {
-            schema_version: CONTROLLER_MESSAGE_OPERATION_SCHEMA_VERSION,
-            event_id: "event-1".into(),
-            operation_id: "op-1".into(),
-            correlation_id: "corr-1".into(),
-            causation_id: None,
-            conversation_id: None,
-            message_id: None,
-            stage: ControllerOperationStage::OperationCompleted,
-            status: ControllerOperationStatus::Completed,
-            occurred_at: "2026-05-04T00:00:00Z".into(),
-            detail: None,
-            snapshot: None,
-        };
-
-        assert!(event.is_terminal());
     }
 }

@@ -51,7 +51,7 @@ type RendererActionResponse = {
 
 const REQUEST_EVENT = "stim://inspection/renderer-action-request";
 const RESPONSE_EVENT = "stim://inspection/renderer-action-response";
-const MESSAGING_SEND_ACTION_TIMEOUT_MS = 120_000;
+const SEND_ACTION_TIMEOUT_MS = 120_000;
 
 function hasTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -90,7 +90,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-async function waitForEnabledSendButton(timeoutMs: number) {
+async function waitForSendButton(timeoutMs: number) {
   const started = Date.now();
 
   while (Date.now() - started < timeoutMs) {
@@ -105,7 +105,7 @@ async function waitForEnabledSendButton(timeoutMs: number) {
   throw new Error("send button did not become enabled");
 }
 
-async function waitForSentMessagingState(
+async function waitForSentState(
   before: RendererMessagingStateSnapshot,
   submittedText: string,
   timeoutMs: number,
@@ -142,7 +142,7 @@ async function waitForSentMessagingState(
   throw new Error("messaging UI did not reach sent state before timeout");
 }
 
-async function waitForEmptyConversationState(timeoutMs: number) {
+async function waitForEmptyConversation(timeoutMs: number) {
   const started = Date.now();
 
   while (Date.now() - started < timeoutMs) {
@@ -178,7 +178,7 @@ async function performMessagingNewConversation() {
 
   const before = readRendererMessagingState();
   button.click();
-  const after = await waitForEmptyConversationState(5_000);
+  const after = await waitForEmptyConversation(5_000);
 
   return {
     action: "messaging-new-conversation" as const,
@@ -211,12 +211,12 @@ async function performMessagingSend(action: RendererMessagingSendAction) {
 
   setInputValue(target, targetEndpointId);
   setInputValue(message, text);
-  const button = await waitForEnabledSendButton(5_000);
+  const button = await waitForSendButton(5_000);
   button.click();
-  const after = await waitForSentMessagingState(
+  const after = await waitForSentState(
     before,
     text,
-    MESSAGING_SEND_ACTION_TIMEOUT_MS,
+    SEND_ACTION_TIMEOUT_MS,
   );
 
   return {

@@ -3,9 +3,7 @@ use std::{fs, time::Duration};
 use stim_shared::inspection::RendererProbeRequest;
 
 use crate::shared::{
-    bridge::{
-        request_controller_runtime_with_timeout, request_inspect_with_timeout, request_probe,
-    },
+    bridge::{request_controller_runtime, request_inspect_with_timeout, request_probe},
     clock::timestamp_now,
 };
 
@@ -19,7 +17,7 @@ pub(crate) fn status() -> Result<(), String> {
     let namespace = current_namespace();
     let processes = stamped_processes_for_namespace(&namespace)?;
     let host = request_inspect_with_timeout(Duration::from_secs(15));
-    let controller_runtime = request_controller_runtime_with_timeout(Duration::from_secs(15));
+    let controller_runtime = request_controller_runtime(Duration::from_secs(15));
     let renderer_landing = request_probe(RendererProbeRequest::LandingBasics);
 
     let output = serde_json::to_string_pretty(&serde_json::json!({
@@ -40,7 +38,7 @@ pub(crate) fn list() -> Result<(), String> {
     let namespace = current_namespace();
     let processes = stamped_processes_for_namespace(&namespace)?;
     let host = request_inspect_with_timeout(Duration::from_secs(2));
-    let controller_runtime = request_controller_runtime_with_timeout(Duration::from_secs(2));
+    let controller_runtime = request_controller_runtime(Duration::from_secs(2));
     let renderer_landing = request_probe(RendererProbeRequest::LandingBasics);
     let output = serde_json::to_string_pretty(&serde_json::json!({
         "namespace": namespace,

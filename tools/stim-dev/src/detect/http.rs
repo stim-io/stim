@@ -4,10 +4,10 @@ use std::{
     time::Duration,
 };
 
-struct HttpEndpoint {
-    host: String,
-    port: u16,
-    host_header: String,
+pub(crate) struct HttpEndpoint {
+    pub(crate) host: String,
+    pub(crate) port: u16,
+    pub(crate) host_header: String,
 }
 
 pub(super) fn http_get_status(
@@ -60,7 +60,7 @@ pub(super) fn http_get_status(
         .map_err(|error| format!("health response from {address} had invalid status code: {error}"))
 }
 
-fn parse_http_base_url(base_url: &str) -> Result<HttpEndpoint, String> {
+pub(crate) fn parse_http_base_url(base_url: &str) -> Result<HttpEndpoint, String> {
     let authority_and_path = base_url.strip_prefix("http://").ok_or_else(|| {
         format!("unsupported health URL scheme for {base_url}; only http:// is supported")
     })?;
@@ -92,21 +92,4 @@ fn parse_http_base_url(base_url: &str) -> Result<HttpEndpoint, String> {
         port,
         host_header,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::parse_http_base_url;
-
-    #[test]
-    fn parses_plain_http_base_urls_for_local_health_checks() {
-        let endpoint = parse_http_base_url("http://127.0.0.1:18081").unwrap();
-
-        assert_eq!(endpoint.host, "127.0.0.1");
-        assert_eq!(endpoint.port, 18081);
-        assert_eq!(endpoint.host_header, "127.0.0.1:18081");
-
-        let endpoint = parse_http_base_url("http://localhost").unwrap();
-        assert_eq!(endpoint.port, 80);
-    }
 }

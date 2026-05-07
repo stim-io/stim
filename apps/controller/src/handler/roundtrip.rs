@@ -1,9 +1,14 @@
 use axum::{extract::State, http::StatusCode, Json};
 
 use crate::{
+    client::{
+        complete_product_chat_turn, fail_product_chat_turn, resolve_delivery_endpoint,
+        start_product_chat_turn, ProductChatTurnStart,
+    },
+    factory::sample_roundtrip_ids,
     model::{
-        map_message_content, timestamp_now, ControllerHttpState, FirstMessageRequest,
-        FirstMessageResponse, LifecycleProofResponse, LifecycleTraceResponse,
+        map_message_content, timestamp_now, ControllerError, ControllerHttpState,
+        FirstMessageRequest, FirstMessageResponse, LifecycleProofResponse, LifecycleTraceResponse,
     },
     service,
 };
@@ -14,17 +19,71 @@ pub(super) async fn first_message_roundtrip(
 ) -> Result<Json<FirstMessageResponse>, (StatusCode, String)> {
     let stim_server_base_url = state.stim_server_base_url.clone();
     let target_endpoint_id = request.target_endpoint_id.clone();
+    let participant_id = request.participant_id.clone();
     let text = request.text.clone();
     let conversation_id = request.conversation_id.clone();
     let self_discovery = state.self_discovery.clone();
-    let summary = tokio::task::spawn_blocking(move || {
-        service::message_roundtrip_via_server(
+    let (summary, ledger_warning) = tokio::task::spawn_blocking(move || {
+        let delivery_endpoint_id = match normalized_participant_id(participant_id.as_deref()) {
+            Some(participant_id) => {
+                resolve_delivery_endpoint(&stim_server_base_url, participant_id)
+                    .map_err(|(_, error)| ControllerError::Server(error))?
+            }
+            None => target_endpoint_id,
+        };
+        let include_bootstrap = conversation_id.is_none();
+        let ids = sample_roundtrip_ids(conversation_id.as_deref());
+        let user_participant_id = self_discovery.endpoint_declaration.endpoint_id.clone();
+        let assistant_participant_id = normalized_participant_id(participant_id.as_deref())
+            .map(str::to_string)
+            .unwrap_or_else(|| delivery_endpoint_id.clone());
+        let product_turn = start_product_chat_turn(
             &stim_server_base_url,
-            &target_endpoint_id,
-            &text,
-            conversation_id.as_deref(),
-            self_discovery,
+            ProductChatTurnStart {
+                session_id: ids.conversation_id.clone(),
+                user_message_id: ids.message_id.clone(),
+                assistant_message_id: assistant_message_id(&ids.message_id),
+                user_participant_id,
+                assistant_participant_id,
+                user_text: text.clone(),
+                operation_id: format!("http-roundtrip-{}", ids.message_id),
+                correlation_id: ids.create_envelope_id.clone(),
+                causation_id: None,
+            },
         )
+        .map_err(|(_, error)| {
+            ControllerError::Server(format!("product ledger start failed: {error}"))
+        })?;
+        match service::server_roundtrip_with_ids(
+            &stim_server_base_url,
+            &delivery_endpoint_id,
+            &text,
+            ids,
+            include_bootstrap,
+            self_discovery,
+        ) {
+            Ok(summary) => {
+                let ledger_warning = complete_product_chat_turn(
+                    &stim_server_base_url,
+                    &product_turn,
+                    &summary.response_text,
+                    Some(&summary.response_envelope_id),
+                )
+                .err()
+                .map(|(_, error)| format!("product ledger completion failed: {error}"));
+                Ok((summary, ledger_warning))
+            }
+            Err(error) => {
+                let failure_detail = format!("{error:?}");
+                let _ = fail_product_chat_turn(
+                    &stim_server_base_url,
+                    &product_turn,
+                    &failure_detail,
+                    None,
+                );
+                Err(error)
+            }
+        }
     })
     .await
     .map_err(|error| {
@@ -37,10 +96,13 @@ pub(super) async fn first_message_roundtrip(
 
     if let Ok(mut snapshot) = state.snapshot.lock() {
         snapshot.published_at = timestamp_now();
-        let roundtrip_detail = format!(
+        let mut roundtrip_detail = format!(
             "last roundtrip ok for endpoint {} envelope {}",
             summary.endpoint_id, summary.envelope_id
         );
+        if let Some(ledger_warning) = ledger_warning {
+            roundtrip_detail = format!("{roundtrip_detail} ; {ledger_warning}");
+        }
         snapshot.detail = Some(match snapshot.detail.take() {
             Some(existing) if !existing.is_empty() => format!("{existing} ; {roundtrip_detail}"),
             _ => roundtrip_detail,
@@ -50,7 +112,8 @@ pub(super) async fn first_message_roundtrip(
     Ok(Json(FirstMessageResponse {
         conversation_id: summary.conversation_id,
         message_id: summary.message_id,
-        target_endpoint_id: request.target_endpoint_id,
+        target_endpoint_id: summary.endpoint_id,
+        participant_id: request.participant_id,
         sent_text: request.text,
         final_sent_text: summary.final_sent_text,
         final_sent_content: map_message_content(&summary.final_sent_content),
@@ -86,4 +149,12 @@ pub(super) async fn first_message_roundtrip(
             version_progression_valid: summary.lifecycle_proof.version_progression_valid,
         },
     }))
+}
+
+fn normalized_participant_id(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn assistant_message_id(user_message_id: &str) -> String {
+    format!("{user_message_id}-assistant")
 }

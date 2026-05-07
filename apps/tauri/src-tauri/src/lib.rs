@@ -1,16 +1,20 @@
+mod agents_runtime;
 mod controller_runtime;
-mod inspection;
+pub mod inspection;
 
 const DEFAULT_RENDERER_URL: &str = "http://127.0.0.1:1420";
 
 pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
+            agents_runtime::agents_runtime_snapshot,
+            agents_runtime::agents_runtime_heartbeat,
             controller_runtime::controller_runtime_snapshot,
             controller_runtime::controller_runtime_heartbeat
         ])
         .setup(|app| {
             create_main_window(app)?;
+            agents_runtime::start_agents_runtime(app);
             controller_runtime::start_controller_runtime(app);
             inspection::renderer_action::manage_renderer_action_state(app);
             inspection::renderer_action::register_renderer_action_listener(app.handle());
@@ -24,8 +28,7 @@ pub fn run() {
 }
 
 fn create_main_window<R: tauri::Runtime>(app: &mut tauri::App<R>) -> tauri::Result<()> {
-    let renderer_url =
-        renderer_url_from_launch_bridge().unwrap_or_else(|| DEFAULT_RENDERER_URL.into());
+    let renderer_url = renderer_launch_url().unwrap_or_else(|| DEFAULT_RENDERER_URL.into());
     let url = tauri::Url::parse(&renderer_url).map_err(tauri::Error::InvalidUrl)?;
 
     tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::External(url))
@@ -37,7 +40,7 @@ fn create_main_window<R: tauri::Runtime>(app: &mut tauri::App<R>) -> tauri::Resu
     Ok(())
 }
 
-fn renderer_url_from_launch_bridge() -> Option<String> {
+fn renderer_launch_url() -> Option<String> {
     let namespace = std::env::var(stim_sidecar::identity::SIDECAR_NAMESPACE_ENV)
         .ok()
         .map(|value| value.trim().to_string())
@@ -52,7 +55,7 @@ fn renderer_url_from_launch_bridge() -> Option<String> {
                 .as_str()
                 .to_string()
         });
-    let path = stim_shared::paths::renderer_delivery_launch_bridge_path(&sidecar_mode, &namespace);
+    let path = stim_shared::paths::renderer_launch_bridge_path(&sidecar_mode, &namespace);
     if !path.exists() {
         return None;
     }

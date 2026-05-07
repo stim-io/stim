@@ -16,13 +16,13 @@ pub(crate) fn stop_matching_processes(
         .map_err(|error| format!("failed to stop stamped processes: {error}"))
 }
 
-pub(crate) fn stop_renderer_dev_server_processes(
-) -> Result<stim_platform::process::StopProcessResult, String> {
+pub(crate) fn stop_renderer_processes() -> Result<stim_platform::process::StopProcessResult, String>
+{
     let processes = stim_platform::process::list_process_snapshots()
         .map_err(|error| format!("failed to list processes: {error}"))?;
     let matched_pids = processes
         .iter()
-        .filter(|process| command_is_renderer_dev_server(&process.command))
+        .filter(|process| is_renderer_dev_server(&process.command))
         .map(|process| process.pid)
         .collect::<Vec<_>>();
 
@@ -58,7 +58,7 @@ pub(crate) fn stamped_processes_for_namespace(
     ))
 }
 
-fn command_is_tauri_host(command: &str) -> bool {
+pub(crate) fn command_is_tauri_host(command: &str) -> bool {
     let tauri_binary = stim_platform::paths::workspace_root()
         .join("target")
         .join("debug")
@@ -66,7 +66,7 @@ fn command_is_tauri_host(command: &str) -> bool {
     command.contains(tauri_binary.to_string_lossy().as_ref())
 }
 
-fn command_is_renderer_dev_server(command: &str) -> bool {
+pub(crate) fn is_renderer_dev_server(command: &str) -> bool {
     let renderer_vite_dir = stim_shared::paths::renderer_vite_dir();
     let renderer_vite_dir = renderer_vite_dir.to_string_lossy();
 
@@ -74,37 +74,4 @@ fn command_is_renderer_dev_server(command: &str) -> bool {
         && command.contains("vite")
         && command.contains("--host 127.0.0.1")
         && command.contains("--port 1420")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{command_is_renderer_dev_server, command_is_tauri_host};
-
-    #[test]
-    fn recognizes_renderer_vite_dev_server_process() {
-        let command = format!(
-            "node {}/node_modules/.bin/../vite/bin/vite.js --host 127.0.0.1 --port 1420",
-            stim_shared::paths::renderer_vite_dir().display()
-        );
-
-        assert!(command_is_renderer_dev_server(&command));
-        assert!(!command_is_renderer_dev_server(
-            "node /tmp/other/vite.js --host 127.0.0.1 --port 1420"
-        ));
-    }
-
-    #[test]
-    fn recognizes_tauri_host_process() {
-        let command = format!(
-            "{} --stim-stamp-app=tauri --stim-stamp-namespace=default",
-            stim_platform::paths::workspace_root()
-                .join("target")
-                .join("debug")
-                .join("stim-tauri")
-                .display()
-        );
-
-        assert!(command_is_tauri_host(&command));
-        assert!(!command_is_tauri_host("/tmp/stim-tauri"));
-    }
 }

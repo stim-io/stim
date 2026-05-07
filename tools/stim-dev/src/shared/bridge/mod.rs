@@ -2,18 +2,19 @@ use std::time::Duration;
 
 use stim_shared::{
     inspection::{
-        ControllerRuntimeBridgeRequest, ControllerRuntimeBridgeResponse, InspectBridgeRequest,
-        InspectBridgeResponse, InspectResult, RendererActionBridgeRequest,
-        RendererActionBridgeResponse, RendererActionRequest, RendererActionResult,
-        RendererProbeBridgeRequest, RendererProbeBridgeResponse, RendererProbeRequest,
-        RendererProbeResult, ScreenshotBridgeRequest, ScreenshotBridgeResponse, ScreenshotResult,
+        AgentsRuntimeBridgeRequest, AgentsRuntimeBridgeResponse, ControllerRuntimeBridgeRequest,
+        ControllerRuntimeBridgeResponse, InspectBridgeRequest, InspectBridgeResponse,
+        InspectResult, RendererActionBridgeRequest, RendererActionBridgeResponse,
+        RendererActionRequest, RendererActionResult, RendererProbeBridgeRequest,
+        RendererProbeBridgeResponse, RendererProbeRequest, RendererProbeResult,
+        ScreenshotBridgeRequest, ScreenshotBridgeResponse, ScreenshotResult,
     },
     paths::{
-        controller_runtime_bridge_request_path, controller_runtime_bridge_response_path,
-        inspect_bridge_request_path, inspect_bridge_response_path,
-        renderer_action_bridge_request_path, renderer_action_bridge_response_path,
-        renderer_probe_bridge_request_path, renderer_probe_bridge_response_path,
-        screenshot_bridge_request_path, screenshot_bridge_response_path,
+        agents_runtime_request_path, agents_runtime_response_path, controller_runtime_request_path,
+        controller_runtime_response_path, inspect_bridge_request_path,
+        inspect_bridge_response_path, renderer_action_request_path, renderer_action_response_path,
+        renderer_probe_request_path, renderer_probe_response_path, screenshot_bridge_request_path,
+        screenshot_bridge_response_path,
     },
 };
 
@@ -57,8 +58,8 @@ pub(crate) fn request_probe(probe: RendererProbeRequest) -> Result<RendererProbe
 
     let response = request_bridge_response::<_, RendererProbeBridgeResponse>(BridgeExchange {
         label: "probe",
-        request_path: renderer_probe_bridge_request_path(&request_id),
-        response_path: renderer_probe_bridge_response_path(&request_id),
+        request_path: renderer_probe_request_path(&request_id),
+        response_path: renderer_probe_response_path(&request_id),
         request: &request,
         request_id: &request_id,
         requested_at: &requested_at,
@@ -82,8 +83,8 @@ pub(crate) fn request_renderer_action(
 
     let response = request_bridge_response::<_, RendererActionBridgeResponse>(BridgeExchange {
         label: "renderer action",
-        request_path: renderer_action_bridge_request_path(&request_id),
-        response_path: renderer_action_bridge_response_path(&request_id),
+        request_path: renderer_action_request_path(&request_id),
+        response_path: renderer_action_response_path(&request_id),
         request: &request,
         request_id: &request_id,
         requested_at: &requested_at,
@@ -118,7 +119,7 @@ pub(crate) fn request_inspect_with_timeout(timeout: Duration) -> Result<InspectR
     Ok(response.result)
 }
 
-pub(crate) fn request_controller_runtime_with_timeout(
+pub(crate) fn request_controller_runtime(
     timeout: Duration,
 ) -> Result<ControllerRuntimeBridgeResponse, String> {
     let request_id = create_request_id();
@@ -130,8 +131,8 @@ pub(crate) fn request_controller_runtime_with_timeout(
 
     request_bridge_response::<_, ControllerRuntimeBridgeResponse>(BridgeExchange {
         label: "controller runtime",
-        request_path: controller_runtime_bridge_request_path(&request_id),
-        response_path: controller_runtime_bridge_response_path(&request_id),
+        request_path: controller_runtime_request_path(&request_id),
+        response_path: controller_runtime_response_path(&request_id),
         request: &request,
         request_id: &request_id,
         requested_at: &requested_at,
@@ -139,46 +140,37 @@ pub(crate) fn request_controller_runtime_with_timeout(
     })
 }
 
-fn renderer_probe_timeout(probe: &RendererProbeRequest) -> Duration {
+pub(crate) fn request_agents_runtime(
+    timeout: Duration,
+) -> Result<AgentsRuntimeBridgeResponse, String> {
+    let request_id = create_request_id();
+    let requested_at = timestamp_now();
+    let request = AgentsRuntimeBridgeRequest {
+        request_id: request_id.clone(),
+        requested_at: requested_at.clone(),
+    };
+
+    request_bridge_response::<_, AgentsRuntimeBridgeResponse>(BridgeExchange {
+        label: "agents runtime",
+        request_path: agents_runtime_request_path(&request_id),
+        response_path: agents_runtime_response_path(&request_id),
+        request: &request,
+        request_id: &request_id,
+        requested_at: &requested_at,
+        timeout,
+    })
+}
+
+pub(crate) fn renderer_probe_timeout(probe: &RendererProbeRequest) -> Duration {
     match probe {
         RendererProbeRequest::LandingBasics => Duration::from_secs(10),
         RendererProbeRequest::MessagingState => Duration::from_secs(10),
     }
 }
 
-fn renderer_action_timeout(action: &RendererActionRequest) -> Duration {
+pub(crate) fn renderer_action_timeout(action: &RendererActionRequest) -> Duration {
     match action {
         RendererActionRequest::MessagingNewConversation => Duration::from_secs(10),
         RendererActionRequest::MessagingSend { .. } => Duration::from_secs(140),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{renderer_action_timeout, renderer_probe_timeout};
-    use std::time::Duration;
-    use stim_shared::inspection::{RendererActionRequest, RendererProbeRequest};
-
-    #[test]
-    fn renderer_inspect_probes_have_short_timeout_budgets() {
-        assert_eq!(
-            renderer_probe_timeout(&RendererProbeRequest::LandingBasics),
-            Duration::from_secs(10)
-        );
-        assert_eq!(
-            renderer_probe_timeout(&RendererProbeRequest::MessagingState),
-            Duration::from_secs(10)
-        );
-    }
-
-    #[test]
-    fn renderer_actions_have_bounded_smoke_timeout() {
-        assert_eq!(
-            renderer_action_timeout(&RendererActionRequest::MessagingSend {
-                text: "hello".into(),
-                target_endpoint_id: None,
-            }),
-            Duration::from_secs(140)
-        );
     }
 }

@@ -10,6 +10,604 @@
     "version": "0.1.0-dev.0"
   },
   "paths": {
+    "/api/v1/agents/instances": {
+      "get": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "list_agent_instances",
+        "responses": {
+          "200": {
+            "description": "Registered agent instances",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInstanceListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/instances/{instance_id}": {
+      "get": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "get_agent_instance",
+        "parameters": [
+          {
+            "name": "instance_id",
+            "in": "path",
+            "description": "Agent runtime instance identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registered agent instance projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInstanceRecord"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent instance not registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "register_agent_instance",
+        "parameters": [
+          {
+            "name": "instance_id",
+            "in": "path",
+            "description": "Agent runtime instance identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentInstanceRegistrationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Registered agent instance projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInstanceRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Path/body mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agents/instances/{instance_id}/heartbeat": {
+      "post": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "heartbeat_agent_instance",
+        "parameters": [
+          {
+            "name": "instance_id",
+            "in": "path",
+            "description": "Agent runtime instance identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentInstanceHeartbeatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated agent instance projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInstanceRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Path/body mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent instance not registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/participant-selection": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "operationId": "get_chat_participant_selection",
+        "responses": {
+          "200": {
+            "description": "Current chat participant selection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantSelectionResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "chat"
+        ],
+        "operationId": "select_chat_participant",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParticipantSelectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated chat participant selection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantSelectionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Participant not registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/participant-selection/delivery-target": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "operationId": "get_selected_chat_participant_delivery_target",
+        "responses": {
+          "200": {
+            "description": "Selected chat participant delivery target",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantDeliveryTargetResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Selected participant delivery target not registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "operationId": "list_chat_sessions",
+        "responses": {
+          "200": {
+            "description": "Product chat sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatSessionListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "operationId": "create_chat_session",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatSessionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Created product chat session projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatSessionRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid chat session request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "operationId": "get_chat_session",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Product chat session identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product chat session projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatSessionRecord"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Chat session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}/messages": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "operationId": "list_chat_messages",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Product chat session identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product chat message projections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Chat session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "operationId": "create_chat_message",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Product chat session identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatMessageCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Created product chat message projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid chat message request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Chat session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}/messages/{message_id}/chunks": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "operationId": "append_chat_message_chunk",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Product chat session identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "description": "Product chat message identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatMessageChunkAppendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated product chat message projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid chat message chunk request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Chat message not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}/messages/{message_id}/finalize": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "operationId": "finalize_chat_message",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "description": "Product chat session identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "description": "Product chat message identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatMessageFinalizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Finalized product chat message projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid chat message finalize request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Chat message not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/discovery/endpoints/{endpoint_id}": {
       "get": {
         "tags": [
@@ -119,6 +717,108 @@
           }
         }
       }
+    },
+    "/api/v1/participants": {
+      "get": {
+        "tags": [
+          "participants"
+        ],
+        "operationId": "list_participants",
+        "responses": {
+          "200": {
+            "description": "Product-visible participant projections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/participants/{participant_id}": {
+      "get": {
+        "tags": [
+          "participants"
+        ],
+        "operationId": "get_participant",
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "description": "Product participant identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product-visible participant projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantRecord"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Participant not registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/participants/{participant_id}/delivery-target": {
+      "get": {
+        "tags": [
+          "participants"
+        ],
+        "operationId": "get_participant_delivery_target",
+        "parameters": [
+          {
+            "name": "participant_id",
+            "in": "path",
+            "description": "Product participant identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Participant delivery target projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantDeliveryTargetResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Participant delivery target not registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -132,6 +832,210 @@
           "unsupported_content",
           "unknown_conversation",
           "unauthorized_mutation"
+        ]
+      },
+      "AgentInstanceHeartbeatRequest": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "instance_id",
+          "status"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "delivery_endpoint_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endpoint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instance_id": {
+            "type": "string"
+          },
+          "participant_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentInstanceStatus"
+          }
+        }
+      },
+      "AgentInstanceListResponse": {
+        "type": "object",
+        "required": [
+          "instances"
+        ],
+        "properties": {
+          "instances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentInstanceRecord"
+            }
+          }
+        }
+      },
+      "AgentInstanceRecord": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "instance_id",
+          "participant_id",
+          "label",
+          "agent_kind",
+          "capabilities",
+          "status",
+          "registered_at",
+          "last_seen_at",
+          "last_event_id"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "agent_kind": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "delivery_endpoint_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endpoint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instance_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "last_event_id": {
+            "type": "string"
+          },
+          "last_seen_at": {
+            "type": "string"
+          },
+          "participant_id": {
+            "type": "string"
+          },
+          "profile": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "registered_at": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentInstanceStatus"
+          }
+        }
+      },
+      "AgentInstanceRegistrationRequest": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "instance_id",
+          "label",
+          "agent_kind",
+          "capabilities",
+          "status"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "agent_kind": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "delivery_endpoint_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endpoint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instance_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "participant_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "profile": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentInstanceStatus"
+          }
+        }
+      },
+      "AgentInstanceStatus": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "degraded",
+          "unreachable",
+          "offline"
         ]
       },
       "AssetRefPart": {
@@ -199,6 +1103,375 @@
             "minimum": 0
           }
         }
+      },
+      "ChatMessageChunkAppendRequest": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "causation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "chunk_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sequence": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "ChatMessageChunkRecord": {
+        "type": "object",
+        "required": [
+          "chunk_id",
+          "sequence",
+          "text",
+          "created_at",
+          "event_id"
+        ],
+        "properties": {
+          "causation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "chunk_id": {
+            "type": "string"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "ChatMessageContentKind": {
+        "type": "string",
+        "enum": [
+          "text"
+        ]
+      },
+      "ChatMessageCreateRequest": {
+        "type": "object",
+        "required": [
+          "participant_id",
+          "message_kind",
+          "content_kind",
+          "state"
+        ],
+        "properties": {
+          "causation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content_kind": {
+            "$ref": "#/components/schemas/ChatMessageContentKind"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "initial_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message_kind": {
+            "$ref": "#/components/schemas/ChatMessageKind"
+          },
+          "operation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "participant_id": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ChatMessageState"
+          }
+        }
+      },
+      "ChatMessageFinalizeRequest": {
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "causation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failure_detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/ChatMessageState"
+          }
+        }
+      },
+      "ChatMessageKind": {
+        "type": "string",
+        "enum": [
+          "user",
+          "assistant",
+          "system",
+          "thinking",
+          "tool-call",
+          "tool-result",
+          "compact"
+        ]
+      },
+      "ChatMessageListResponse": {
+        "type": "object",
+        "required": [
+          "messages"
+        ],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageRecord"
+            }
+          }
+        }
+      },
+      "ChatMessageRecord": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "message_id",
+          "participant_id",
+          "message_kind",
+          "content_kind",
+          "state",
+          "text",
+          "chunks",
+          "version",
+          "created_at",
+          "updated_at",
+          "last_event_id"
+        ],
+        "properties": {
+          "causation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "chunks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageChunkRecord"
+            }
+          },
+          "content_kind": {
+            "$ref": "#/components/schemas/ChatMessageContentKind"
+          },
+          "correlation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "failure_detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_event_id": {
+            "type": "string"
+          },
+          "message_id": {
+            "type": "string"
+          },
+          "message_kind": {
+            "$ref": "#/components/schemas/ChatMessageKind"
+          },
+          "operation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "participant_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ChatMessageState"
+          },
+          "text": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ChatMessageState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "streaming",
+          "completed",
+          "failed",
+          "redacted"
+        ]
+      },
+      "ChatSessionCreateRequest": {
+        "type": "object",
+        "properties": {
+          "created_by_participant_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ChatSessionListResponse": {
+        "type": "object",
+        "required": [
+          "sessions"
+        ],
+        "properties": {
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatSessionRecord"
+            }
+          }
+        }
+      },
+      "ChatSessionRecord": {
+        "type": "object",
+        "required": [
+          "session_id",
+          "state",
+          "created_at",
+          "updated_at",
+          "last_event_id"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string"
+          },
+          "created_by_participant_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_event_id": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ChatSessionState"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "ChatSessionState": {
+        "type": "string",
+        "enum": [
+          "active",
+          "closed"
+        ]
       },
       "ContentPart": {
         "oneOf": [
@@ -838,6 +2111,197 @@
           }
         ]
       },
+      "ParticipantDeliveryTarget": {
+        "type": "object",
+        "required": [
+          "endpoint_id"
+        ],
+        "properties": {
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "carrier_kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endpoint_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ParticipantDeliveryTargetResponse": {
+        "type": "object",
+        "required": [
+          "participant_id",
+          "delivery_target",
+          "last_event_id"
+        ],
+        "properties": {
+          "delivery_target": {
+            "$ref": "#/components/schemas/ParticipantDeliveryTarget"
+          },
+          "last_event_id": {
+            "type": "string"
+          },
+          "participant_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ParticipantListResponse": {
+        "type": "object",
+        "required": [
+          "participants"
+        ],
+        "properties": {
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ParticipantRecord"
+            }
+          }
+        }
+      },
+      "ParticipantRecord": {
+        "type": "object",
+        "required": [
+          "participant_id",
+          "display_label",
+          "markers",
+          "capabilities",
+          "status",
+          "source",
+          "registered_at",
+          "last_seen_at",
+          "last_event_id"
+        ],
+        "properties": {
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "delivery_target": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ParticipantDeliveryTarget"
+              }
+            ]
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_label": {
+            "type": "string"
+          },
+          "last_event_id": {
+            "type": "string"
+          },
+          "last_seen_at": {
+            "type": "string"
+          },
+          "markers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "participant_id": {
+            "type": "string"
+          },
+          "registered_at": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ParticipantSource"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ParticipantStatus"
+          }
+        }
+      },
+      "ParticipantSelectionRequest": {
+        "type": "object",
+        "required": [
+          "participant_id"
+        ],
+        "properties": {
+          "participant_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ParticipantSelectionResponse": {
+        "type": "object",
+        "properties": {
+          "last_event_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "participant": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ParticipantRecord"
+              }
+            ]
+          },
+          "selected_participant_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ParticipantSource": {
+        "type": "object",
+        "required": [
+          "source_kind"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instance_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_kind": {
+            "type": "string"
+          }
+        }
+      },
+      "ParticipantStatus": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "degraded",
+          "unreachable",
+          "offline"
+        ]
+      },
       "PatchOperation": {
         "type": "object",
         "required": [
@@ -955,6 +2419,15 @@
     },
     {
       "name": "discovery"
+    },
+    {
+      "name": "agents"
+    },
+    {
+      "name": "participants"
+    },
+    {
+      "name": "chat"
     }
   ]
 }

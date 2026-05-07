@@ -5,13 +5,13 @@ use stim_shared::delivery::{DeliveryError, DeliveryPort};
 
 use crate::{
     client::{
-        request_protocol_reply, HttpSantiCarrier, HttpStimServerFacade, InMemoryStimServerFacade,
-        StimServerFacade,
+        request_protocol_reply_stream, HttpSantiCarrier, HttpStimServerFacade,
+        InMemoryStimServerFacade, StimServerFacade,
     },
     config::{DEFAULT_COMPOSE_SANTI_BASE_URL, DEFAULT_COMPOSE_STIM_SERVER_BASE_URL},
     factory::{
         http_santi_discovery_fixture, sample_create_envelope, sample_fix_envelope,
-        sample_patch_envelope, sample_roundtrip_ids, user_text_content,
+        sample_patch_envelope, sample_roundtrip_ids, user_text_content, RoundtripIds,
     },
     model::{
         ControllerError, ControllerLifecycleProof, ControllerLifecycleStep, ControllerProofSummary,
@@ -46,14 +46,38 @@ where
         text: &str,
         conversation_id: Option<&str>,
     ) -> Result<ControllerProofSummary, ControllerError> {
+        let ids = sample_roundtrip_ids(conversation_id);
+        self.deliver_with_ids(endpoint_id, text, ids, conversation_id.is_none())
+    }
+
+    pub(crate) fn deliver_with_ids(
+        &mut self,
+        endpoint_id: &str,
+        text: &str,
+        ids: RoundtripIds,
+        include_bootstrap: bool,
+    ) -> Result<ControllerProofSummary, ControllerError> {
+        self.deliver_with_stream_ids(endpoint_id, text, ids, include_bootstrap, |_| Ok(()))
+    }
+
+    pub(crate) fn deliver_with_stream_ids<H>(
+        &mut self,
+        endpoint_id: &str,
+        text: &str,
+        ids: RoundtripIds,
+        include_bootstrap: bool,
+        on_reply_delta: H,
+    ) -> Result<ControllerProofSummary, ControllerError>
+    where
+        H: FnMut(&str) -> Result<(), ControllerError>,
+    {
         let peer_discovery = self.server_facade.discover_endpoint(endpoint_id)?;
         let self_discovery = self.self_discovery.clone();
         let revised_text = text.to_string();
-        let ids = sample_roundtrip_ids(conversation_id);
 
         let peer_listen_address = first_listen_address(&peer_discovery)?;
         let self_listen_address = first_listen_address(&self_discovery)?;
-        let create_envelope = sample_create_envelope(&ids, text, conversation_id.is_none());
+        let create_envelope = sample_create_envelope(&ids, text, include_bootstrap);
         let sent_envelope_id = create_envelope.envelope_id.clone();
 
         self.state.cache_discovery_record(peer_discovery.clone());
@@ -87,7 +111,8 @@ where
         let lifecycle_proof =
             build_lifecycle_proof(&lifecycle_trace, &revised_text, fix_response.new_version);
         let reply_id = extract_reply_id(&fix_response)?;
-        let response = request_protocol_reply(&target.selected_address, &reply_id)?;
+        let response =
+            request_protocol_reply_stream(&target.selected_address, &reply_id, on_reply_delta)?;
 
         self.delivery_port.close_delivery_target(&target)?;
 
@@ -114,7 +139,7 @@ where
     }
 }
 
-pub fn first_message_roundtrip_with_records(
+pub fn first_roundtrip_with_records(
     server_base_url: &str,
     endpoint_id: &str,
     text: &str,
@@ -146,18 +171,42 @@ pub fn message_roundtrip_with_records(
     runtime.deliver_to_endpoint(endpoint_id, text, conversation_id)
 }
 
-pub fn message_roundtrip_via_server(
+pub(crate) fn server_roundtrip_with_ids(
     server_base_url: &str,
     endpoint_id: &str,
     text: &str,
-    conversation_id: Option<&str>,
+    ids: RoundtripIds,
+    include_bootstrap: bool,
     self_discovery: DiscoveryRecord,
 ) -> Result<ControllerProofSummary, ControllerError> {
+    server_roundtrip_with_stream(
+        server_base_url,
+        endpoint_id,
+        text,
+        ids,
+        include_bootstrap,
+        self_discovery,
+        |_| Ok(()),
+    )
+}
+
+pub(crate) fn server_roundtrip_with_stream<H>(
+    server_base_url: &str,
+    endpoint_id: &str,
+    text: &str,
+    ids: RoundtripIds,
+    include_bootstrap: bool,
+    self_discovery: DiscoveryRecord,
+    on_reply_delta: H,
+) -> Result<ControllerProofSummary, ControllerError>
+where
+    H: FnMut(&str) -> Result<(), ControllerError>,
+{
     let facade = HttpStimServerFacade::new(server_base_url);
     let carrier = http_santi_carrier(&self_discovery)?;
 
     let mut runtime = ControllerRuntime::new(facade, carrier, self_discovery);
-    runtime.deliver_to_endpoint(endpoint_id, text, conversation_id)
+    runtime.deliver_with_stream_ids(endpoint_id, text, ids, include_bootstrap, on_reply_delta)
 }
 
 pub fn first_message_roundtrip(text: &str) -> Result<ControllerProofSummary, ControllerError> {
@@ -166,7 +215,7 @@ pub fn first_message_roundtrip(text: &str) -> Result<ControllerProofSummary, Con
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| DEFAULT_COMPOSE_SANTI_BASE_URL.to_string());
     let fixture = http_santi_discovery_fixture("default", &santi_base_url);
-    first_message_roundtrip_with_records(
+    first_roundtrip_with_records(
         DEFAULT_COMPOSE_STIM_SERVER_BASE_URL,
         "endpoint-b",
         text,

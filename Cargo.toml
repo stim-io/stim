@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "apps/agents",
   "apps/packaged",
   "apps/renderer",
   "apps/tauri/src-tauri",
@@ -7,7 +8,8 @@ members = [
   "crates/platform",
   "crates/sidecar",
   "crates/shared",
-  "tools/stim-dev"
+  "tools/stim-dev",
+  "tools/stim-guard"
 ]
 resolver = "2"
 

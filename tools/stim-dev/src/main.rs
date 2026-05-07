@@ -1,6 +1,7 @@
 use std::{env, process::exit};
 
 mod acceptance;
+mod chat;
 mod cli;
 mod control;
 mod detect;
@@ -10,8 +11,9 @@ mod sidecars;
 mod smoke;
 
 use acceptance::accept;
+use chat::chat;
 use cli::{help_text, parse_command_line, parse_start_options, print_help, reject_extra_args};
-use control::{inspect, list, reset, status, stop};
+use control::{agents, inspect, list, reset, status, stop};
 use detect::detect;
 use dev_loop::{restart, start, ExistingInstancePolicy};
 use smoke::smoke;
@@ -42,6 +44,8 @@ fn run() -> Result<(), String> {
             detect()
         }
         "accept" => accept(args),
+        "agents" => agents(args),
+        "chat" => chat(args),
         "smoke" => smoke(args),
         "status" => {
             reject_extra_args(args, "status")?;

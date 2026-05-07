@@ -6,6 +6,7 @@ use stim_proto::MessageContent;
 pub struct FirstMessageRequest {
     pub text: String,
     pub target_endpoint_id: String,
+    pub participant_id: Option<String>,
     pub conversation_id: Option<String>,
 }
 
@@ -14,6 +15,7 @@ pub struct FirstMessageResponse {
     pub conversation_id: String,
     pub message_id: String,
     pub target_endpoint_id: String,
+    pub participant_id: Option<String>,
     pub sent_text: String,
     pub final_sent_text: String,
     pub final_sent_content: MessageContentResponse,

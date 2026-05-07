@@ -50,7 +50,7 @@ export function readRendererMessagingState(): RendererMessagingStateSnapshot {
     latest_tool_activity_summary: textContentFor(
       '[data-probe="tool-activity-summary"]',
     ),
-    assistant_response_content_kind: lastAssistantResponseContentKind(),
+    assistant_response_content_kind: lastAssistantKind(),
     assistant_fragment_present: lastAssistantFragmentPresent(),
     error_message: textContentFor('[data-probe="last-error-message"]'),
     primary_action_label: primaryActionLabel(),
@@ -98,7 +98,7 @@ function lastAssistantRichContent(): HTMLElement | null {
   );
 }
 
-function lastAssistantResponseContentKind(): string | null {
+function lastAssistantKind(): string | null {
   return lastAssistantRichContent()?.dataset.contentKind ?? null;
 }
 

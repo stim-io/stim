@@ -51,6 +51,7 @@ export type FirstMessageResponse = {
   conversation_id: string;
   message_id: string;
   target_endpoint_id: string;
+  participant_id: string | null;
   sent_text: string;
   final_sent_text: string;
   final_sent_content: MessageContent;
@@ -96,9 +97,86 @@ export type ConversationTranscriptResponse = {
   tool_activities: ConversationToolActivity[];
 };
 
+export type ControllerOperationStage =
+  | "command-accepted"
+  | "delivery-target-resolved"
+  | "delivery-started"
+  | "message-chunk-appended"
+  | "conversation-selected"
+  | "delivery-completed"
+  | "transcript-loaded"
+  | "operation-completed"
+  | "operation-failed";
+
+export type ControllerOperationStatus =
+  | "accepted"
+  | "running"
+  | "completed"
+  | "failed";
+
+export type ControllerOperationMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  text: string;
+};
+
+export type ControllerOperationMessageDelta = {
+  message_id: string;
+  role: "user" | "assistant" | "system";
+  text: string;
+};
+
+export type ControllerOperationSnapshot = {
+  conversation_id: string;
+  message_count: number;
+  user_message_count: number;
+  assistant_message_count: number;
+  tool_activity_count: number;
+  tool_result_count: number;
+  last_user_text: string | null;
+  last_assistant_text: string | null;
+  final_sent_text: string | null;
+  response_text_source: string | null;
+  messages: ControllerOperationMessage[];
+  tool_activities: ConversationToolActivity[];
+};
+
+export type ControllerOperationReference = {
+  reference_kind: string;
+  ledger_id: string | null;
+  fact_id: string | null;
+  message_id: string | null;
+  content_id: string | null;
+  revision_id: string | null;
+  relation_id: string | null;
+  participant_id: string | null;
+  endpoint_id: string | null;
+  envelope_id: string | null;
+  reply_id: string | null;
+  detail: string | null;
+};
+
+export type ControllerOperationEvent = {
+  schema_version: number;
+  event_id: string;
+  operation_id: string;
+  correlation_id: string;
+  causation_id: string | null;
+  conversation_id: string | null;
+  message_id: string | null;
+  stage: ControllerOperationStage;
+  status: ControllerOperationStatus;
+  occurred_at: string;
+  detail: string | null;
+  references: ControllerOperationReference[];
+  message_delta: ControllerOperationMessageDelta | null;
+  snapshot: ControllerOperationSnapshot | null;
+};
+
 export async function sendFirstMessage(
   text: string,
   targetEndpointId: string,
+  participantId?: string | null,
   conversationId?: string | null,
 ) {
   const snapshot = await fetchControllerRuntimeSnapshot();
@@ -117,6 +195,7 @@ export async function sendFirstMessage(
       body: JSON.stringify({
         text,
         target_endpoint_id: targetEndpointId,
+        participant_id: participantId ?? null,
         conversation_id: conversationId ?? null,
       }),
     },
@@ -127,6 +206,80 @@ export async function sendFirstMessage(
   }
 
   return response.json() as Promise<FirstMessageResponse>;
+}
+
+export async function sendTextOperation(
+  text: string,
+  targetEndpointId: string,
+  participantId: string | null | undefined,
+  conversationId: string | null | undefined,
+  onEvent: (event: ControllerOperationEvent) => void,
+) {
+  const snapshot = await fetchControllerRuntimeSnapshot();
+
+  if (!snapshot.http_base_url) {
+    throw new Error("Controller HTTP base URL unavailable");
+  }
+
+  const wsUrl = controllerOperationWsUrl(snapshot.http_base_url);
+  const operationId = createClientOperationId("op");
+  const command = {
+    schema_version: 1,
+    operation_id: operationId,
+    correlation_id: createClientOperationId("corr"),
+    command: {
+      command: "send-text",
+      text,
+      target_endpoint_id: targetEndpointId,
+      participant_id: participantId ?? null,
+      conversation_id: conversationId ?? null,
+    },
+  };
+
+  return new Promise<ControllerOperationEvent>((resolve, reject) => {
+    const socket = new WebSocket(wsUrl);
+    const timeout = window.setTimeout(() => {
+      socket.close();
+      reject(new Error("Controller operation timed out"));
+    }, 120_000);
+
+    socket.addEventListener("open", () => {
+      socket.send(JSON.stringify(command));
+    });
+
+    socket.addEventListener("message", (message) => {
+      try {
+        const event = JSON.parse(String(message.data)) as ControllerOperationEvent;
+        onEvent(event);
+
+        if (isTerminalOperationEvent(event)) {
+          window.clearTimeout(timeout);
+          socket.close();
+          if (
+            event.stage === "operation-failed" ||
+            event.status === "failed"
+          ) {
+            reject(new Error(event.detail ?? "Controller operation failed"));
+          } else {
+            resolve(event);
+          }
+        }
+      } catch (error) {
+        window.clearTimeout(timeout);
+        socket.close();
+        reject(error);
+      }
+    });
+
+    socket.addEventListener("error", () => {
+      window.clearTimeout(timeout);
+      reject(new Error("Controller operation WebSocket failed"));
+    });
+
+    socket.addEventListener("close", () => {
+      window.clearTimeout(timeout);
+    });
+  });
 }
 
 export async function fetchConversationTranscript(conversationId: string) {
@@ -147,4 +300,24 @@ export async function fetchConversationTranscript(conversationId: string) {
   }
 
   return response.json() as Promise<ConversationTranscriptResponse>;
+}
+
+function controllerOperationWsUrl(controllerBaseUrl: string) {
+  const baseUrl = controllerBaseUrl.replace(/\/+$/, "");
+  if (baseUrl.startsWith("http://")) {
+    return `${baseUrl.replace(/^http:\/\//, "ws://")}/api/v1/controller/operations/ws`;
+  }
+  if (baseUrl.startsWith("https://")) {
+    return `${baseUrl.replace(/^https:\/\//, "wss://")}/api/v1/controller/operations/ws`;
+  }
+
+  throw new Error(`Unsupported controller URL: ${controllerBaseUrl}`);
+}
+
+function isTerminalOperationEvent(event: ControllerOperationEvent) {
+  return event.stage === "operation-completed" || event.stage === "operation-failed";
+}
+
+function createClientOperationId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }

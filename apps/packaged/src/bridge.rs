@@ -1,5 +1,5 @@
 use stim_shared::{
-    control_plane::RendererDeliveryLaunchBridge, paths::renderer_delivery_launch_bridge_path,
+    control_plane::RendererDeliveryLaunchBridge, paths::renderer_launch_bridge_path,
 };
 use stim_sidecar::identity::SidecarMode;
 
@@ -17,7 +17,7 @@ pub(crate) fn write_renderer_delivery_bridge(
         source: source.into(),
         published_at: timestamp_now(),
     };
-    let path = renderer_delivery_launch_bridge_path(mode.as_str(), namespace);
+    let path = renderer_launch_bridge_path(mode.as_str(), namespace);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|error| format!("failed to create renderer delivery bridge dir: {error}"))?;

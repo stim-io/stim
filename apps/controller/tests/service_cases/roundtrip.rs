@@ -6,11 +6,13 @@ use stim_proto::{
     ProtocolSubmission, ReplyHandle, ReplySnapshot, ReplyStatus,
 };
 
-use crate::factory::{
-    http_santi_discovery_fixture, parse_acknowledgement, sample_santi_discovery_record,
+use crate::{
+    factory::{
+        discovery::{http_santi_discovery_fixture, sample_santi_discovery_record},
+        parse_acknowledgement,
+    },
+    service::roundtrip::{first_roundtrip_with_records, message_roundtrip_with_records},
 };
-
-use super::{first_message_roundtrip_with_records, message_roundtrip_with_records};
 
 fn spawn_test_santi_server() -> String {
     let std_listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -85,10 +87,10 @@ fn spawn_test_santi_server() -> String {
 }
 
 #[test]
-fn controller_runtime_caches_discovery_and_roundtrips_message() {
+fn caches_discovery_roundtrips() {
     let santi_base_url = spawn_test_santi_server();
     let fixture = http_santi_discovery_fixture("default", &santi_base_url);
-    let summary = first_message_roundtrip_with_records(
+    let summary = first_roundtrip_with_records(
         "http://127.0.0.1:8080",
         "endpoint-b",
         "hello controller",
@@ -139,10 +141,10 @@ fn controller_runtime_caches_discovery_and_roundtrips_message() {
 }
 
 #[test]
-fn controller_runtime_uses_registry_records_for_selected_endpoint() {
+fn uses_registry_endpoint() {
     let santi_base_url = spawn_test_santi_server();
     let fixture = http_santi_discovery_fixture("registry-test", &santi_base_url);
-    let summary = first_message_roundtrip_with_records(
+    let summary = first_roundtrip_with_records(
         "http://127.0.0.1:43100",
         "endpoint-b",
         "hello registry",
@@ -162,7 +164,7 @@ fn controller_runtime_uses_registry_records_for_selected_endpoint() {
 }
 
 #[test]
-fn controller_runtime_can_continue_existing_conversation() {
+fn continues_existing_conversation() {
     let santi_base_url = spawn_test_santi_server();
     let fixture = http_santi_discovery_fixture("continue-test", &santi_base_url);
 
@@ -195,7 +197,7 @@ fn controller_runtime_can_continue_existing_conversation() {
 }
 
 #[test]
-fn santi_discovery_record_uses_http_attach_target() {
+fn discovery_uses_http_target() {
     let record = sample_santi_discovery_record("http://127.0.0.1:18081");
 
     assert_eq!(record.carrier_kind, "http");
@@ -207,7 +209,7 @@ fn santi_discovery_record_uses_http_attach_target() {
 }
 
 #[test]
-fn acknowledgement_keeps_receipt_fields_without_output_parsing() {
+fn ack_preserves_receipt_fields() {
     let parsed = parse_acknowledgement(&ProtocolAcknowledgement {
         ack_envelope_id: "ack-env-1".into(),
         ack_message_id: "msg-1".into(),

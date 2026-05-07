@@ -205,10 +205,28 @@ fn process_is_alive(pid: u32) -> std::io::Result<bool> {
         .stderr(Stdio::null())
         .status()?;
 
-    Ok(status.success())
+    if !status.success() {
+        return Ok(false);
+    }
+
+    Ok(!process_is_zombie(pid)?)
 }
 
-fn parse_ps_line(line: &str) -> Option<ProcessSnapshot> {
+fn process_is_zombie(pid: u32) -> std::io::Result<bool> {
+    let output = Command::new("ps")
+        .args(["-o", "state=", "-p", &pid.to_string()])
+        .output()?;
+
+    if !output.status.success() {
+        return Ok(false);
+    }
+
+    let state = String::from_utf8_lossy(&output.stdout);
+
+    Ok(state.trim().starts_with('Z'))
+}
+
+pub fn parse_ps_line(line: &str) -> Option<ProcessSnapshot> {
     let mut parts = line.split_whitespace();
     let pid = parts.next()?.parse::<u32>().ok()?;
     let ppid = parts.next()?.parse::<u32>().ok()?;
@@ -219,47 +237,4 @@ fn parse_ps_line(line: &str) -> Option<ProcessSnapshot> {
     }
 
     Some(ProcessSnapshot { command, pid, ppid })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{collect_process_tree_pids, parse_ps_line, ProcessSnapshot};
-
-    #[test]
-    fn parses_ps_line_with_command_spaces() {
-        assert_eq!(
-            parse_ps_line("123 1 stim-controller --stim-stamp-app=controller"),
-            Some(ProcessSnapshot {
-                pid: 123,
-                ppid: 1,
-                command: "stim-controller --stim-stamp-app=controller".into(),
-            })
-        );
-    }
-
-    #[test]
-    fn collects_process_tree_children_before_parent() {
-        let processes = vec![
-            ProcessSnapshot {
-                command: "root".into(),
-                pid: 10,
-                ppid: 1,
-            },
-            ProcessSnapshot {
-                command: "child".into(),
-                pid: 11,
-                ppid: 10,
-            },
-            ProcessSnapshot {
-                command: "grandchild".into(),
-                pid: 12,
-                ppid: 11,
-            },
-        ];
-
-        assert_eq!(
-            collect_process_tree_pids(&processes, &[10]),
-            vec![12, 11, 10]
-        );
-    }
 }

@@ -56,6 +56,7 @@ async fn handle_controller_operation_socket(state: ControllerHttpState, mut sock
             ControllerOperationCommand::SendText {
                 text,
                 target_endpoint_id,
+                participant_id,
                 conversation_id,
             } => {
                 run_send_text_operation(
@@ -63,6 +64,7 @@ async fn handle_controller_operation_socket(state: ControllerHttpState, mut sock
                     &command,
                     text,
                     target_endpoint_id,
+                    participant_id,
                     conversation_id,
                     &mut emitter,
                 )
