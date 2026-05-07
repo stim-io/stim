@@ -23,7 +23,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Keep the web app, Tauri host, and local runtime-control surfaces separated by explicit boundaries rather than convenience-driven mixing.
 - IPC/plugin commands are for local host control, discovery, diagnostics, and capability bridging; they must not become the primary business API surface.
 - Model local launcher-managed surfaces as sidecar app instances where that improves startup, inspection, and cleanup symmetry; use `sidecar-mode` with only `dev` and `runtime` values, and do not use `runtime-mode` naming for that concept.
-- Consume platform and sidecar primitives from sibling `../stim-dev`; do not reintroduce local ownership for path/process/network/env/lock/OS facts or sidecar identity/layout/stamp/cleanup primitives inside `stim`.
+- Consume platform and sidecar primitives from sibling `../stim-crates`; do not reintroduce local ownership for path/process/network/env/lock/OS facts or sidecar identity/layout/stamp/cleanup primitives inside `stim`.
 - Keep stamp identity intentionally small: `app + namespace + sidecar-mode + source`. Role, instance id, endpoint, health, and richer lifecycle facts belong in ready-line / inspect communication, not argv.
 - Do not persist runtime truth in state files such as `state.json`, `runtime.json`, or `heartbeat.json`; live inspect/probe/health surfaces are the source of current runtime truth, while stamps define cleanup ownership and locks define startup exclusion only.
 - Keep inspection focused on stable boundary truth (attachment target, visible state, error presence, message growth, visible content shape). Do not treat open-ended agent chat semantics as fully scriptable until those semantics have matured into a genuinely stable contract.
@@ -47,8 +47,8 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 
 ## Common Commands
 
-- Install or refresh the local dev-loop CLI: `cargo install --path tools/stim-dev --force`
-- Normal `stim-dev` usage should call the installed CLI directly; use `cargo run -p stim-dev -- ...` only as a local fallback while iterating on `stim-dev` itself or debugging a narrow command implementation.
+- Install or refresh the local dev-loop CLI: `cargo install --path ../stim-dev --force`
+- Normal `stim-dev` usage calls the installed CLI directly with `STIM_WORKSPACE_ROOT="$(pwd)"` set inside this repo, or runs via `cargo run --manifest-path ../stim-dev/Cargo.toml -- ...` from a cwd inside this repo so workspace discovery resolves correctly. The CLI lives in the sibling `../stim-dev` repo; it is no longer a Cargo member of this workspace.
 - Format workspace: `pnpm exec prettier --write .`
 - Check formatting: `pnpm exec prettier --check .`
 - Run repo guard: `pnpm run guard` (Rust fmt/controller-tool tests plus client and renderer typechecks)
