@@ -41,6 +41,12 @@ jobs:
           repository: stim-io/stim-server
           path: stim-server
 
+      - name: Checkout stim-dev
+        uses: actions/checkout@v6
+        with:
+          repository: stim-io/stim-dev
+          path: stim-dev
+
       - name: Checkout stim-guard
         uses: actions/checkout@v6
         with:

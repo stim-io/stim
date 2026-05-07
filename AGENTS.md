@@ -23,8 +23,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Keep the web app, Tauri host, and local runtime-control surfaces separated by explicit boundaries rather than convenience-driven mixing.
 - IPC/plugin commands are for local host control, discovery, diagnostics, and capability bridging; they must not become the primary business API surface.
 - Model local launcher-managed surfaces as sidecar app instances where that improves startup, inspection, and cleanup symmetry; use `sidecar-mode` with only `dev` and `runtime` values, and do not use `runtime-mode` naming for that concept.
-- Keep `crates/platform` limited to platform facts such as paths, processes, networking, environment, locks, and OS detection.
-- Keep `crates/sidecar` limited to sidecar identity, namespace, layout, stamp, live inspect, and stamped-process cleanup concepts; it must not become a business API layer.
+- Consume platform and sidecar primitives from sibling `../stim-dev`; do not reintroduce local ownership for path/process/network/env/lock/OS facts or sidecar identity/layout/stamp/cleanup primitives inside `stim`.
 - Keep stamp identity intentionally small: `app + namespace + sidecar-mode + source`. Role, instance id, endpoint, health, and richer lifecycle facts belong in ready-line / inspect communication, not argv.
 - Do not persist runtime truth in state files such as `state.json`, `runtime.json`, or `heartbeat.json`; live inspect/probe/health surfaces are the source of current runtime truth, while stamps define cleanup ownership and locks define startup exclusion only.
 - Keep inspection focused on stable boundary truth (attachment target, visible state, error presence, message growth, visible content shape). Do not treat open-ended agent chat semantics as fully scriptable until those semantics have matured into a genuinely stable contract.
@@ -119,8 +118,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - `apps/agents/`: local agents sidecar HTTP service for `santi` instance management/perception
 - `apps/packaged/`: thin packaged/runtime launcher entry and packaged sidecar assembly plan
 - `apps/renderer/`: renderer delivery sidecar wrapper plus Vite app under `apps/renderer/vite/`
-- `crates/platform/`: platform primitive crate for path/process/network/env/lock/OS facts
-- `crates/sidecar/`: sidecar namespace, layout, ready/inspect, and 4-field stamp primitive crate
+- `../stim-dev/`: standalone local sidecar/platform development infrastructure consumed by `tools/stim-dev`, packaged launchers, and sidecar runtimes
 - `.github/workflows/guard.yml`: required guard workflow
 - `../../AGENTS.md`: repo-root workspace boundary across all attached repos
 

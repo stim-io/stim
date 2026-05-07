@@ -47,8 +47,6 @@ stim/
     controller/
     packaged/
   crates/
-    platform/
-    sidecar/
     shared/
   tools/
     stim-dev/
@@ -60,9 +58,8 @@ stim/
 - `apps/tauri/` is the desktop host shell boundary
 - `apps/controller/` is the local controller/runtime boundary
 - `apps/packaged/` is the thin packaged/runtime launcher boundary
-- `crates/platform/` owns platform facts and primitives
-- `crates/sidecar/` owns sidecar namespace, layout, ready/inspect, and stamp primitives
-- `crates/` holds non-UI Rust support layers
+- `crates/` holds non-UI Rust support layers that remain product-client local
+- `../stim-dev/` owns reusable platform and sidecar infrastructure consumed by this repo
 - `tools/` holds repo-local Rust developer tools and operational entrypoints
 - `docs/` is the durable architecture/contract/operations boundary
 
@@ -79,7 +76,7 @@ The only valid sidecar-mode values are:
 
 Do not use `runtime-mode` for this concept; that name conflicts with the `runtime` enum value and makes launcher mode ambiguous.
 
-`crates/platform/` owns low-level platform facts only:
+`stim` consumes low-level platform facts from sibling `../stim-dev/crates/platform`:
 
 - path derivation
 - process spawning and process table access
@@ -88,9 +85,9 @@ Do not use `runtime-mode` for this concept; that name conflicts with the `runtim
 - file locks
 - OS and architecture detection
 
-`crates/platform/` must not own sidecar identity, app lifecycle policy, controller attach targets, inspection schemas, or business protocol behavior.
+That platform crate must not own sidecar identity, app lifecycle policy, controller attach targets, inspection schemas, or business protocol behavior.
 
-`crates/sidecar/` owns local sidecar control-plane primitives:
+`stim` consumes local sidecar control-plane primitives from sibling `../stim-dev/crates/sidecar`:
 
 - namespace defaults
 - sidecar app identity
@@ -108,7 +105,7 @@ The argv stamp is deliberately low-dimensional:
 
 Do not put role, instance id, endpoint, health, or richer lifecycle facts into stamp args. Those facts are live runtime facts and should be carried by ready-line / inspect / health communication.
 
-`crates/sidecar/` must not own product/business APIs.
+That sidecar crate must not own product/business APIs.
 
 Do not introduce persisted runtime truth files such as `state.json`, `runtime.json`, or `heartbeat.json`. Runtime truth should be produced by live inspect/probe/health surfaces. Stamps define cleanup ownership and worst-case process leak boundaries; locks define startup exclusion only.
 
