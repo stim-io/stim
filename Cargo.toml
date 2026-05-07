@@ -16,6 +16,6 @@ license = "MIT"
 version = "0.1.0"
 
 [workspace.dependencies]
-stim-platform = { path = "../stim-dev/crates/platform" }
-stim-sidecar = { path = "../stim-dev/crates/sidecar" }
+stim-platform = { path = "../stim-crates/crates/platform" }
+stim-sidecar = { path = "../stim-crates/crates/sidecar" }
 stim-shared = { path = "crates/shared" }
