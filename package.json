@@ -4,17 +4,13 @@
   "type": "module",
   "packageManager": "pnpm@10.32.1",
   "scripts": {
-    "build:client": "pnpm -C packages/client build",
-    "build:renderer": "pnpm -C packages/client build && pnpm -C apps/renderer/vite build",
+    "build:renderer": "pnpm -C apps/renderer/vite build",
     "format:check": "pnpm exec prettier --check .",
-    "generate:client": "pnpm -C packages/client generate",
-    "guard": "cargo fmt --all --check && cargo test -p stim-shared -p stim-controller && pnpm run typecheck:client && pnpm run typecheck:renderer && pnpm run guard:style",
+    "guard": "cargo fmt --all --check && cargo test -p stim-shared -p stim-controller && pnpm run typecheck:renderer && pnpm run guard:style",
     "guard:style": "cargo run --locked --manifest-path ../stim-guard/Cargo.toml -- check --root . --config stim-guard.json",
-    "typecheck:client": "pnpm -C packages/client typecheck",
-    "typecheck:renderer": "pnpm -C packages/client build && pnpm -C apps/renderer/vite typecheck"
+    "typecheck:renderer": "pnpm -C apps/renderer/vite typecheck"
   },
   "devDependencies": {
-    "@hey-api/openapi-ts": "0.91.0",
     "prettier": "^3.6.2"
   }
 }
