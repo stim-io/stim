@@ -8,8 +8,7 @@ members = [
   "crates/platform",
   "crates/sidecar",
   "crates/shared",
-  "tools/stim-dev",
-  "tools/stim-guard"
+  "tools/stim-dev"
 ]
 resolver = "2"
 
