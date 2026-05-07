@@ -16,8 +16,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - `stim/` work should start from real Agent-Native IM workflow slices that exercise the path through the app, controller/service boundaries, and `santi`; avoid isolated client wins that do not improve that loop.
 - Keep UI usable enough for daily workflow validation: reliable input, message display, reload/continuation, error visibility, and inspection. Defer visual polish unless it unlocks the core workflow.
 - Keep heavy communication, orchestration, and durable business logic behind server boundaries (`stim-server/` and `santi/`), not inside platform-specific client code.
-- `apps/agents/` is the carrier-agnostic local agent-instance management sidecar. It exposes a first-class HTTP service surface for web and operator clients; it orchestrates local `santi` instances, provider profile catalogs, secret handoff, and perception, while atomic provider/runtime/session/tool/memory capabilities stay in `santi`.
-- `apps/agents/` publishes local Santi discovery records plus instance registration and heartbeat facts to `stim-server`; those facts may project a product `participant_id`, but the agent/instance ids remain technical observability markers.
+- Agent orchestration (the carrier-agnostic local agent-instance management sidecar that orchestrates `santi` instances and publishes discovery / registration / heartbeat facts to `stim-server`) lives in the sibling [`stim-agents`](https://github.com/stim-io/stim-agents) repo, not here. The renderer in this repo consumes that sidecar via its HTTP surface; do not re-introduce agent orchestration concerns into this workspace.
 - Chat surfaces should consume product-visible participants and selection events from `stim-server`, not renderer/controller-local active selection. Controller delivery may resolve the chosen `participant_id` through `stim-server` into a protocol endpoint id.
 - Treat Tauri as the desktop host/runtime boundary, not as the main product-logic home.
 - Keep the web app, Tauri host, and local runtime-control surfaces separated by explicit boundaries rather than convenience-driven mixing.
@@ -115,10 +114,11 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - `docs/architecture/desktop/tauri-boundary.md`: boundary between the Tauri host, web app, and local runtime/service processes
 - `docs/contracts/host/inspection.md`: host status and inspection boundary for `stim-dev`
 - `docs/contracts/controller/message-operation-events.md`: controller-owned message-operation event contract for local app-loop coverage and acceptance
-- `apps/agents/`: local agents sidecar HTTP service for `santi` instance management/perception
 - `apps/packaged/`: thin packaged/runtime launcher entry and packaged sidecar assembly plan
 - `apps/renderer/`: renderer delivery sidecar wrapper plus Vite app under `apps/renderer/vite/`
-- `../stim-dev/`: standalone local sidecar/platform development infrastructure consumed by `tools/stim-dev`, packaged launchers, and sidecar runtimes
+- `../stim-agents/`: standalone agent orchestration sidecar (Rust HTTP service that manages local `santi` instances and publishes facts to `stim-server`); consumed by this repo's renderer over HTTP only
+- `../stim-crates/`: standalone Rust platform / sidecar primitive crates consumed by this repo's apps and by the dev CLI
+- `../stim-dev/`: standalone dev CLI binary that drives the local development loop across this repo
 - `.github/workflows/guard.yml`: required guard workflow
 - `../../AGENTS.md`: repo-root workspace boundary across all attached repos
 
