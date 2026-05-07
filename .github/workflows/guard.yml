@@ -41,11 +41,11 @@ jobs:
           repository: stim-io/stim-server
           path: stim-server
 
-      - name: Checkout stim-dev
+      - name: Checkout stim-crates
         uses: actions/checkout@v6
         with:
-          repository: stim-io/stim-dev
-          path: stim-dev
+          repository: stim-io/stim-crates
+          path: stim-crates
 
       - name: Checkout stim-guard
         uses: actions/checkout@v6
