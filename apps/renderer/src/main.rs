@@ -1,19 +1,22 @@
 use std::{
     env,
-    net::{TcpStream, ToSocketAddrs},
+    io::{BufRead, BufReader},
     path::PathBuf,
-    process::{exit, Command, Stdio},
+    process::{exit, ChildStdout, Command, Stdio},
+    sync::mpsc,
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use axum::Router;
+use regex::Regex;
 use stim_sidecar::{ready::SidecarReadyLine, stamp::read_stamp};
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
 const READY_TIMEOUT: Duration = Duration::from_secs(120);
 const RENDERER_ROLE: &str = "renderer-delivery";
+const VITE_LOCAL_LINE_PATTERN: &str = r"Local:\s+(http://[^\s]+)";
 
 #[tokio::main]
 async fn main() {
@@ -52,27 +55,67 @@ fn run_dev(args: Vec<String>) -> Result<(), String> {
         .collect::<Vec<_>>();
     let stamp =
         read_stamp(&stamp_args).map_err(|error| format!("invalid renderer stamp: {error}"))?;
-    let mut pnpm_args = vec!["dev", "--host", "127.0.0.1", "--port", "1420"];
+    let mut pnpm_args = vec!["dev", "--host", "127.0.0.1"];
     if force {
         pnpm_args.push("--force");
     }
     let mut child = Command::new("pnpm")
         .args(pnpm_args)
         .current_dir(stim_shared::paths::renderer_vite_dir())
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::null())
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()
         .map_err(|error| format!("failed to spawn renderer dev server: {error}"))?;
 
-    if let Err(error) = wait_for_tcp_child("127.0.0.1:1420", &mut child, READY_TIMEOUT) {
-        let _ = child.kill();
-        let _ = child.wait();
-        return Err(error);
-    }
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "renderer dev stdout was not piped".to_string())?;
+    let endpoint = match observe_vite_endpoint(stdout, READY_TIMEOUT) {
+        Ok(endpoint) => endpoint,
+        Err(error) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(error);
+        }
+    };
 
-    print_ready(stamp, stim_shared::RENDERER_DEV_URL.to_string())?;
+    print_ready(stamp, endpoint)?;
     wait_child(child, "renderer dev server")
+}
+
+/// Compose `stim_sidecar::stdout::extract_endpoint` with a sync
+/// line reader to capture the first vite `Local: http://...`
+/// line. After the URL is captured, a side thread keeps draining
+/// the rest of vite's stdout so its pipe doesn't fill and block
+/// the child.
+fn observe_vite_endpoint(stdout: ChildStdout, timeout: Duration) -> Result<String, String> {
+    let pattern = Regex::new(VITE_LOCAL_LINE_PATTERN)
+        .map_err(|error| format!("invalid vite stdout pattern: {error}"))?;
+    let (tx, rx) = mpsc::channel::<Result<String, String>>();
+    thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        let mut sent = false;
+        for line_res in reader.lines() {
+            let Ok(line) = line_res else { break };
+            if sent {
+                continue;
+            }
+            if let Some(endpoint) = stim_sidecar::stdout::extract_endpoint(&line, &pattern) {
+                let _ = tx.send(Ok(endpoint));
+                sent = true;
+            }
+        }
+        if !sent {
+            let _ = tx.send(Err(
+                "renderer dev server closed stdout before logging endpoint".to_string(),
+            ));
+        }
+    });
+
+    rx.recv_timeout(timeout)
+        .map_err(|_| "timed out waiting for vite endpoint".to_string())?
 }
 
 async fn run_runtime(args: Vec<String>) -> Result<(), String> {
@@ -144,46 +187,4 @@ fn timestamp_now() -> String {
         .duration_since(UNIX_EPOCH)
         .expect("system clock before unix epoch");
     format!("{}-{:03}", duration.as_secs(), duration.subsec_millis())
-}
-
-fn wait_for_tcp_child(
-    address: &str,
-    child: &mut std::process::Child,
-    timeout: Duration,
-) -> Result<(), String> {
-    let deadline = SystemTime::now() + timeout;
-    let address = address
-        .to_socket_addrs()
-        .map_err(|error| format!("failed to resolve {address}: {error}"))?
-        .next()
-        .ok_or_else(|| format!("failed to resolve {address}"))?;
-
-    loop {
-        if let Some(status) = child
-            .try_wait()
-            .map_err(|error| format!("failed checking renderer dev server status: {error}"))?
-        {
-            return Err(format!(
-                "renderer dev server exited before ready with status {status}"
-            ));
-        }
-
-        if TcpStream::connect_timeout(&address, Duration::from_millis(200)).is_ok() {
-            thread::sleep(Duration::from_millis(500));
-            if let Some(status) = child.try_wait().map_err(|error| {
-                format!("failed checking renderer dev server status after TCP ready: {error}")
-            })? {
-                return Err(format!(
-                    "renderer dev server exited after TCP ready with status {status}"
-                ));
-            }
-            return Ok(());
-        }
-
-        if SystemTime::now() >= deadline {
-            return Err(format!("timed out waiting for {address}"));
-        }
-
-        thread::sleep(Duration::from_millis(200));
-    }
 }
