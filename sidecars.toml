@@ -5,14 +5,26 @@ project = "stim"
 app = "controller"
 launch = { kind = "cargo", manifest_path = "Cargo.toml", package = "stim-controller", args = ["serve"] }
 ready = { role = "controller-runtime" }
+endpoint_env = "STIM_CONTROLLER_ENDPOINT"
+inspect = { capabilities = ["runtime"] }
 
 [[sidecars]]
 app = "renderer"
-launch = { kind = "cargo", manifest_path = "Cargo.toml", package = "stim-renderer", args = ["serve", "--dev"] }
+launch = { kind = "cargo", manifest_path = "Cargo.toml", package = "stim-renderer", args = ["serve", "--dev", "--force"] }
 ready = { role = "renderer-delivery" }
+endpoint_env = "STIM_RENDERER_URL"
+inspect = { capabilities = ["landing", "messaging"] }
 
 [[sidecars]]
 app = "tauri"
 stamp_via_env = true
 cwd = "apps/tauri/src-tauri"
 launch = { kind = "cargo", manifest_path = "apps/tauri/src-tauri/Cargo.toml", cargo_args = ["--no-default-features"] }
+inherits_env = [
+    { name = "STIM_AGENTS_ENDPOINT", from = "agents.endpoint_env" },
+    { name = "STIM_AGENTS_INSTANCE_ID", from = "agents.instance_id" },
+    { name = "STIM_CONTROLLER_ENDPOINT", from = "controller.endpoint_env" },
+    { name = "STIM_CONTROLLER_INSTANCE_ID", from = "controller.instance_id" },
+    { name = "STIM_RENDERER_URL", from = "renderer.endpoint_env" },
+]
+inspect = { capabilities = ["host", "screenshot"], endpoint_kind = "tauri-ipc" }
