@@ -168,14 +168,9 @@ async function waitForEmptyConversation(timeoutMs: number) {
       after.active_conversation_id === null &&
       after.chat_entry_count === 0 &&
       after.user_entry_count === 0 &&
-      after.assistant_entry_count === 0 &&
-      !after.error_message
+      after.assistant_entry_count === 0
     ) {
       return after;
-    }
-
-    if (after.error_message) {
-      throw new Error(after.error_message);
     }
 
     await sleep(50);

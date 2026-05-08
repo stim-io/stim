@@ -15,6 +15,7 @@ endpoint_env = "STIM_RENDERER_URL"
 
 [[sidecars]]
 app = "tauri"
+stamp_source = "app:tauri"
 stamp_via_env = true
 cwd = "apps/tauri/src-tauri"
 launch = { kind = "cargo", manifest_path = "apps/tauri/src-tauri/Cargo.toml", cargo_args = ["--no-default-features"] }
