@@ -14,6 +14,9 @@ importers:
 
   apps/renderer/vite:
     dependencies:
+      '@stim-io/agents-client':
+        specifier: file:../../../../stim-packages/packages/agents-client
+        version: file:../stim-packages/packages/agents-client
       '@stim-io/client':
         specifier: file:../../../../stim-packages/packages/client
         version: file:../stim-packages/packages/client
@@ -192,6 +195,9 @@ packages:
 
   '@rolldown/pluginutils@1.0.0-rc.15':
     resolution: {integrity: sha512-UromN0peaE53IaBRe9W7CjrZgXl90fqGpK+mIZbA3qSTeYqg3pqpROBdIPvOG3F5ereDHNwoHBI2e50n1BDr1g==}
+
+  '@stim-io/agents-client@file:../stim-packages/packages/agents-client':
+    resolution: {directory: ../stim-packages/packages/agents-client, type: directory}
 
   '@stim-io/client@file:../stim-packages/packages/client':
     resolution: {directory: ../stim-packages/packages/client, type: directory}
@@ -655,6 +661,8 @@ snapshots:
   '@rolldown/pluginutils@1.0.0-rc.13': {}
 
   '@rolldown/pluginutils@1.0.0-rc.15': {}
+
+  '@stim-io/agents-client@file:../stim-packages/packages/agents-client': {}
 
   '@stim-io/client@file:../stim-packages/packages/client': {}
 

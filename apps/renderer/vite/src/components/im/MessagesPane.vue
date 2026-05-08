@@ -20,7 +20,7 @@ import {
 
 import MessageRow from "./MessageRow.vue";
 import type { SessionSummary } from "./types";
-import type { RegisteredParticipant } from "../../server/agents";
+import type { RegisteredParticipant } from "@stim-io/agents-client";
 
 const props = defineProps<{
   session: SessionSummary;

@@ -27,7 +27,7 @@ import {
   fetchRegisteredParticipants,
   selectChatParticipant,
   type RegisteredParticipant,
-} from "./server/agents";
+} from "@stim-io/agents-client";
 
 const activeConversationStorageKey = "stim.activeConversationId";
 const storedConversationId = readStoredConversationId();
