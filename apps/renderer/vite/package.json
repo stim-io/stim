@@ -8,6 +8,7 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@stim-io/agents-client": "file:../../../../stim-packages/packages/agents-client",
     "@stim-io/client": "file:../../../../stim-packages/packages/client",
     "@stim-io/components": "file:../../../../stim-packages/packages/components",
     "@stim-io/icons": "file:../../../../stim-packages/packages/icons",

@@ -1,3 +1,4 @@
+import { configureAgentsClient } from "@stim-io/agents-client";
 import { createApp } from "vue";
 
 import App from "./App.vue";
@@ -5,6 +6,10 @@ import { setupInspectionActions } from "./inspection/actions";
 import { setupInspectionProbes } from "./inspection/probes";
 import { buildServerDiscoveryUrl } from "./server/client-proof";
 import { applyTheme } from "./styles/bootstrap";
+
+configureAgentsClient({
+  serverBaseUrl: import.meta.env.VITE_STIM_SERVER_BASE_URL,
+});
 
 function renderBootstrapError(error: unknown) {
   const target = document.querySelector("#app") ?? document.body;
