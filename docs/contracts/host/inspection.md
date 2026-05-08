@@ -229,7 +229,7 @@ If a future web harness boundary becomes mature enough to expose declared app op
 ## Ownership split
 
 - `crates/shared/` owns the shared status/inspection/probe contract shapes.
-- `tools/stim-dev/` owns the local operator command surface.
+- `../stim-dev/` owns the local operator command surface.
 - `apps/tauri/src-tauri/` owns the host bridge, request handling, and host-owned inspection snapshots.
-- `apps/agents/` owns the local agent-instance management HTTP service surface.
+- `../stim-agents/` owns the local agent-instance management HTTP service surface.
 - `apps/renderer/vite/` owns renderer-side implementation of declared read-only inspection snapshots.
