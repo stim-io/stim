@@ -1,24 +1,27 @@
 {
-  "include": [
-    "apps/*/src/**",
-    "apps/*/tests/**",
-    "apps/renderer/server/src/**",
-    "apps/renderer/vite/src/**",
-    "apps/tauri/src-tauri/src/**",
-    "apps/tauri/src-tauri/tests/**",
-    "crates/*/src/**",
-    "crates/*/tests/**",
-    "tools/*/src/**",
-    "tools/*/tests/**"
-  ],
-  "exclude": [
-    "**/node_modules/**",
-    "**/target/**",
-    "**/dist/**",
-    "**/.vite/**",
-    "**/.vite-temp/**",
-    ".tmp/**",
-    "apps/tauri/src-tauri/gen/**",
-    "packages/client/src/gen/**"
-  ]
+  "scan": {
+    "include": [
+      "apps/*/src/**",
+      "apps/*/tests/**",
+      "apps/renderer/server/src/**",
+      "apps/renderer/vite/src/**",
+      "apps/tauri/src-tauri/src/**",
+      "apps/tauri/src-tauri/tests/**",
+      "crates/*/src/**",
+      "crates/*/tests/**",
+      "tools/*/src/**",
+      "tools/*/tests/**"
+    ],
+    "exclude": [
+      "**/node_modules/**",
+      "**/target/**",
+      "**/dist/**",
+      "**/.vite/**",
+      "**/.vite-temp/**",
+      ".tmp/**",
+      "apps/tauri/src-tauri/gen/**",
+      "packages/client/src/gen/**"
+    ]
+  },
+  "overrides": []
 }

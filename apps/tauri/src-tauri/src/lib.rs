@@ -23,7 +23,7 @@ pub fn run() {
             inspection::renderer_probe::register_renderer_probe_listener(app.handle());
             inspection::request_handler::start_inspection_bridge(app.handle().clone());
             sidecar_runtime::install(app.handle().clone())
-                .map_err(|error| Box::<dyn std::error::Error>::from(error))?;
+                .map_err(Box::<dyn std::error::Error>::from)?;
             Ok(())
         })
         .run(tauri::generate_context!())

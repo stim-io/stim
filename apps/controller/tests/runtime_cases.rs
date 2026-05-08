@@ -21,6 +21,8 @@ mod service;
 mod fetch_cases;
 #[path = "runtime_cases/http.rs"]
 mod http_cases;
+#[path = "runtime_cases/sidecar.rs"]
+mod sidecar_cases;
 #[path = "runtime_cases/status.rs"]
 mod status_cases;
 #[path = "runtime_cases/support.rs"]
