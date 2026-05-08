@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 axum = "0.8"
+regex = "1"
 serde_json = "1"
 stim-shared.workspace = true
 stim-sidecar.workspace = true
