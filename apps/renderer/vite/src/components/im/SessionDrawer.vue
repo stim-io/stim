@@ -20,7 +20,6 @@ defineProps<{
   collapsed: boolean;
   sessionQuery: string;
   activeScope: "all" | "live" | "unread";
-  activeSurface: "messages" | "agents";
 }>();
 
 const emit = defineEmits<{
@@ -29,7 +28,6 @@ const emit = defineEmits<{
   toggleCollapse: [];
   "update:sessionQuery": [value: string];
   "update:activeScope": [value: "all" | "live" | "unread"];
-  "update:activeSurface": [value: "messages" | "agents"];
 }>();
 </script>
 
@@ -62,23 +60,6 @@ const emit = defineEmits<{
         variant="secondary"
         @click="emit('newConversation')"
       />
-
-      <StimStack gap="xs">
-        <StimButton
-          label="M"
-          aria-label="Messages"
-          size="sm"
-          :variant="activeSurface === 'messages' ? 'secondary' : 'ghost'"
-          @click="emit('update:activeSurface', 'messages')"
-        />
-        <StimButton
-          label="A"
-          aria-label="Agents"
-          size="sm"
-          :variant="activeSurface === 'agents' ? 'secondary' : 'ghost'"
-          @click="emit('update:activeSurface', 'agents')"
-        />
-      </StimStack>
 
       <StimStack data-probe="session-list" gap="xs">
         <StimInteractiveRow
@@ -147,23 +128,6 @@ const emit = defineEmits<{
         variant="ghost"
         @click="emit('newConversation')"
       />
-
-      <StimInline gap="xs" wrap>
-        <StimButton
-          label="Messages"
-          :pressed="activeSurface === 'messages'"
-          size="sm"
-          :variant="activeSurface === 'messages' ? 'secondary' : 'ghost'"
-          @click="emit('update:activeSurface', 'messages')"
-        />
-        <StimButton
-          label="Agents"
-          :pressed="activeSurface === 'agents'"
-          size="sm"
-          :variant="activeSurface === 'agents' ? 'secondary' : 'ghost'"
-          @click="emit('update:activeSurface', 'agents')"
-        />
-      </StimInline>
 
       <StimStack gap="sm">
         <StimInput

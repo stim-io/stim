@@ -2,7 +2,6 @@
 import { StimAppRoot, StimSplit } from "@stim-io/components";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
-import AgentsSettings from "./agents/AgentsSettings.vue";
 import {
   applyChatEvent,
   createLiveChatModel,
@@ -41,7 +40,6 @@ const draftText = ref("");
 const targetEndpointId = ref("endpoint-b");
 const controllerSnapshot = ref<ControllerRuntimeSnapshot | null>(null);
 const activeSessionId = ref("live-controller");
-const activeSurface = ref<"messages" | "agents">("messages");
 const isSessionDrawerCollapsed = ref(false);
 const sessionQuery = ref("");
 const activeSessionScope = ref<"all" | "live" | "unread">("all");
@@ -306,19 +304,16 @@ function clearStoredConversationId() {
         :collapsed="isSessionDrawerCollapsed"
         :controller-status="controllerStatus"
         :active-scope="activeSessionScope"
-        :active-surface="activeSurface"
         :session-query="sessionQuery"
         :sessions="visibleSessions"
         @new-conversation="handleNewConversation"
         @select="activeSessionId = $event"
         @toggle-collapse="isSessionDrawerCollapsed = !isSessionDrawerCollapsed"
         @update:active-scope="activeSessionScope = $event"
-        @update:active-surface="activeSurface = $event"
         @update:session-query="sessionQuery = $event"
       />
 
       <MessagesPane
-        v-if="activeSurface === 'messages'"
         :active-conversation-id="liveChatModel.activeConversationId"
         :controller-base-url="controllerBaseUrl"
         :controller-status="controllerStatus"
@@ -339,7 +334,6 @@ function clearStoredConversationId() {
         @update:draft-text="draftText = $event"
         @update:target-endpoint-id="targetEndpointId = $event"
       />
-      <AgentsSettings v-else />
     </StimSplit>
   </StimAppRoot>
 </template>
