@@ -15,7 +15,7 @@
 //! whichever path the chain context exposes; once everyone has
 //! migrated, the bridge file path can be deleted.
 
-use std::{future::Future, pin::Pin, thread, time::Duration};
+use std::{future::Future, pin::Pin, sync::mpsc, thread, time::Duration};
 
 use serde_json::{json, Value};
 use stim_sidecar::{
@@ -29,22 +29,13 @@ use stim_sidecar::{
 use tauri::AppHandle;
 
 const ROLE: &str = "tauri-runtime";
+const START_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Bind, emit ready-line, spawn serve loop. Called from Tauri's
 /// `setup` after window + inspection state is in place but before
 /// Cocoa main loop takes over the main thread.
 pub fn install(app: AppHandle) -> Result<(), String> {
-    let bind_runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|error| format!("tokio bind runtime: {error}"))?;
-    let (addr, listener) = bind_runtime
-        .block_on(runtime::bind())
-        .map_err(|error| format!("sidecar bind: {error}"))?;
-
-    let runtime_endpoint = format!("127.0.0.1:{}", addr.port());
-    publish_ready_line(&runtime_endpoint)?;
-
+    let (ready_sender, ready_receiver) = mpsc::channel();
     thread::spawn(move || {
         let serve_runtime = match tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
@@ -53,17 +44,37 @@ pub fn install(app: AppHandle) -> Result<(), String> {
         {
             Ok(rt) => rt,
             Err(error) => {
-                eprintln!("stim-tauri sidecar runtime build failed: {error}");
+                let _ = ready_sender.send(Err(format!(
+                    "stim-tauri sidecar runtime build failed: {error}"
+                )));
                 return;
             }
         };
+
+        let (addr, listener) = match serve_runtime.block_on(runtime::bind()) {
+            Ok(bound) => bound,
+            Err(error) => {
+                let _ = ready_sender.send(Err(format!("sidecar bind: {error}")));
+                return;
+            }
+        };
+
+        let runtime_endpoint = format!("127.0.0.1:{}", addr.port());
+        if let Err(error) = publish_ready_line(&runtime_endpoint) {
+            let _ = ready_sender.send(Err(error));
+            return;
+        }
+        let _ = ready_sender.send(Ok(()));
+
         let handler = build_handler(app);
         if let Err(error) = serve_runtime.block_on(runtime::serve(listener, handler)) {
             eprintln!("stim-tauri sidecar serve exited: {error}");
         }
     });
 
-    Ok(())
+    ready_receiver
+        .recv_timeout(START_TIMEOUT)
+        .map_err(|error| format!("tauri sidecar ready wait failed: {error}"))?
 }
 
 fn publish_ready_line(runtime_endpoint: &str) -> Result<(), String> {

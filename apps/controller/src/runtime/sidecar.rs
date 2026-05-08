@@ -11,7 +11,7 @@
 //! `ControllerServiceHandle`. Unknown verbs return
 //! `not_implemented` per the SidecarRuntime contract.
 
-use std::{future::Future, pin::Pin, thread};
+use std::{future::Future, pin::Pin, sync::mpsc, thread, time::Duration};
 
 use serde_json::{json, Value};
 use stim_sidecar::{
@@ -25,18 +25,7 @@ use crate::model::ControllerServiceHandle;
 const ROLE: &str = "controller-runtime";
 
 pub fn install(stamp: SidecarStamp, handle: ControllerServiceHandle) -> Result<(), String> {
-    let bind_runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .map_err(|error| format!("tokio bind runtime: {error}"))?;
-    let (addr, listener) = bind_runtime
-        .block_on(runtime::bind())
-        .map_err(|error| format!("sidecar bind: {error}"))?;
-
-    let runtime_endpoint = format!("127.0.0.1:{}", addr.port());
-    publish_ready_line(stamp, &handle, runtime_endpoint.clone())?;
-
-    let handler_handle = handle;
+    let (ready_sender, ready_receiver) = mpsc::channel();
     thread::spawn(move || {
         let serve_runtime = match tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
@@ -45,17 +34,36 @@ pub fn install(stamp: SidecarStamp, handle: ControllerServiceHandle) -> Result<(
         {
             Ok(rt) => rt,
             Err(error) => {
-                eprintln!("stim-controller sidecar runtime build failed: {error}");
+                let _ = ready_sender.send(Err(format!(
+                    "stim-controller sidecar runtime build failed: {error}"
+                )));
                 return;
             }
         };
-        let handler = build_handler(handler_handle);
+
+        let (addr, listener) = match serve_runtime.block_on(runtime::bind()) {
+            Ok(bound) => bound,
+            Err(error) => {
+                let _ = ready_sender.send(Err(format!("sidecar bind: {error}")));
+                return;
+            }
+        };
+        let runtime_endpoint = format!("127.0.0.1:{}", addr.port());
+        if let Err(error) = publish_ready_line(stamp, &handle, runtime_endpoint) {
+            let _ = ready_sender.send(Err(error));
+            return;
+        }
+        let _ = ready_sender.send(Ok(()));
+
+        let handler = build_handler(handle);
         if let Err(error) = serve_runtime.block_on(runtime::serve(listener, handler)) {
             eprintln!("stim-controller sidecar serve exited: {error}");
         }
     });
 
-    Ok(())
+    ready_receiver
+        .recv_timeout(Duration::from_secs(10))
+        .map_err(|error| format!("controller sidecar ready wait failed: {error}"))?
 }
 
 fn publish_ready_line(
