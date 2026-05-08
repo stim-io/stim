@@ -20,9 +20,15 @@ importers:
       '@stim-io/components':
         specifier: file:../../../../stim-packages/packages/components
         version: file:../stim-packages/packages/components(vue@3.5.32(typescript@6.0.2))
+      '@stim-io/icons':
+        specifier: file:../../../../stim-packages/packages/icons
+        version: file:../stim-packages/packages/icons(vue@3.5.32(typescript@6.0.2))
       '@tauri-apps/api':
         specifier: ^2.10.1
         version: 2.10.1
+      lucide-vue-next:
+        specifier: 0.474.0
+        version: 0.474.0(vue@3.5.32(typescript@6.0.2))
       vue:
         specifier: ^3.5.32
         version: 3.5.32(typescript@6.0.2)
@@ -192,6 +198,11 @@ packages:
 
   '@stim-io/components@file:../stim-packages/packages/components':
     resolution: {directory: ../stim-packages/packages/components, type: directory}
+    peerDependencies:
+      vue: 3.5.32
+
+  '@stim-io/icons@file:../stim-packages/packages/icons':
+    resolution: {directory: ../stim-packages/packages/icons, type: directory}
     peerDependencies:
       vue: 3.5.32
 
@@ -434,6 +445,11 @@ packages:
     resolution: {integrity: sha512-NXYBzinNrblfraPGyrbPoD19C1h9lfI/1mzgWYvXUTe414Gz/X1FD2XBZSZM7rRTrMA8JL3OtAaGifrIKhQ5yQ==}
     engines: {node: '>= 12.0.0'}
 
+  lucide-vue-next@0.474.0:
+    resolution: {integrity: sha512-bQaSBjfJ33xiPQCxCf4JD3rcUgZFgWZzxSY8SScNa4Mcq2vWGlbvQx6icTL1UXRqsxzfoT13RXawePSmgg4iWw==}
+    peerDependencies:
+      vue: '>=3.0.1'
+
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -646,6 +662,11 @@ snapshots:
     dependencies:
       vue: 3.5.32(typescript@6.0.2)
 
+  '@stim-io/icons@file:../stim-packages/packages/icons(vue@3.5.32(typescript@6.0.2))':
+    dependencies:
+      lucide-vue-next: 0.474.0(vue@3.5.32(typescript@6.0.2))
+      vue: 3.5.32(typescript@6.0.2)
+
   '@tauri-apps/api@2.10.1': {}
 
   '@tauri-apps/cli-darwin-arm64@2.10.1':
@@ -850,6 +871,10 @@ snapshots:
       lightningcss-linux-x64-musl: 1.32.0
       lightningcss-win32-arm64-msvc: 1.32.0
       lightningcss-win32-x64-msvc: 1.32.0
+
+  lucide-vue-next@0.474.0(vue@3.5.32(typescript@6.0.2)):
+    dependencies:
+      vue: 3.5.32(typescript@6.0.2)
 
   magic-string@0.30.21:
     dependencies:

@@ -10,7 +10,9 @@
   "dependencies": {
     "@stim-io/client": "file:../../../../stim-packages/packages/client",
     "@stim-io/components": "file:../../../../stim-packages/packages/components",
+    "@stim-io/icons": "file:../../../../stim-packages/packages/icons",
     "@tauri-apps/api": "^2.10.1",
+    "lucide-vue-next": "0.474.0",
     "vue": "^3.5.32"
   },
   "devDependencies": {

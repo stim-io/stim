@@ -57,9 +57,20 @@ function hasTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-function messageInput(): HTMLInputElement | null {
-  return document.querySelector<HTMLInputElement>(
+function messageInput(): HTMLInputElement | HTMLTextAreaElement | null {
+  const probed = document.querySelector<HTMLElement>(
     '[data-probe="message-input"]',
+  );
+  if (
+    probed instanceof HTMLInputElement ||
+    probed instanceof HTMLTextAreaElement
+  ) {
+    return probed;
+  }
+  return (
+    probed?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+      "input, textarea",
+    ) ?? null
   );
 }
 
@@ -81,7 +92,10 @@ function newConversationButton(): HTMLButtonElement | null {
   );
 }
 
-function setInputValue(input: HTMLInputElement, value: string) {
+function setInputValue(
+  input: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) {
   input.value = value;
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
@@ -119,7 +133,9 @@ async function waitForSentState(
     const visibleAssistantText = Boolean(after.last_assistant_text);
     const countAdvanced = after.chat_entry_count > before.chat_entry_count;
     const hasConversation = Boolean(after.active_conversation_id);
-    const idleAgain = after.primary_action_label === "Send message";
+    const idleAgain =
+      after.primary_action_label !== null &&
+      after.primary_action_label !== "Sending…";
 
     if (
       visibleUserText &&
