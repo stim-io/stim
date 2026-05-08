@@ -40,7 +40,6 @@ When `stim` grows into a real client repo, prefer a shape recognizable along the
 ```txt
 stim/
   apps/
-    agents/
     renderer/
       vite/
     tauri/
@@ -48,19 +47,17 @@ stim/
     packaged/
   crates/
     shared/
-  tools/
-    stim-dev/
   docs/
 ```
 
 - `apps/renderer/` is the renderer delivery boundary: the Rust wrapper lives at the boundary root, while the product Vite app lives under `apps/renderer/vite/`
-- `apps/agents/` is the local agent-instance management sidecar boundary; it publishes agent/instance observability facts and participant projection inputs to `stim-server`, while product chat selection is keyed by server-owned `participant_id`
 - `apps/tauri/` is the desktop host shell boundary
 - `apps/controller/` is the local controller/runtime boundary
 - `apps/packaged/` is the thin packaged/runtime launcher boundary
 - `crates/` holds non-UI Rust support layers that remain product-client local
-- `../stim-dev/` owns reusable platform and sidecar infrastructure consumed by this repo
-- `tools/` holds repo-local Rust developer tools and operational entrypoints
+- `../stim-crates/` owns reusable platform and sidecar infrastructure consumed by this repo
+- `../stim-agents/` owns the local agent-instance management sidecar; this repo's renderer talks to it over HTTP and does not embed agent orchestration
+- `../stim-dev/` owns the dev-loop CLI binary; install it via `cargo install --path ../stim-dev --force`
 - `docs/` is the durable architecture/contract/operations boundary
 
 The internal Tauri `src-tauri/` directory is treated as an implementation detail of `apps/tauri/`, not as the repo's top-level architecture shape.
@@ -229,45 +226,15 @@ Do not promote those leftovers into shared primitives automatically.
 
 Promote them only when repeated pressure shows that the same concern is reappearing across screens or message-card compositions.
 
-## `apps/agents/` ownership
+## Agent orchestration ownership (sibling repo)
 
-`apps/agents/` owns the local agent-instance management sidecar.
+Agent-instance management is owned by the sibling [`stim-agents`](https://github.com/stim-io/stim-agents) repo, not by this workspace. That repo carries:
 
-It is a first-class HTTP service sidecar, following the same basic service-surface method as `stim-server`: `/api/v1` routes, JSON responses, explicit error envelopes, and OpenAPI documentation.
+- a Rust HTTP service sidecar that orchestrates local `santi` instances and publishes registration / heartbeat / discovery facts to `stim-server`
+- a standalone Vue renderer for agent operations (extracted in Phase D2)
+- a dedicated Tauri host with bundle id `io.stim.agents` (extracted in Phase D3)
 
-It may:
-
-- publish local `santi` instance snapshots for web and operator clients
-- probe `santi` health, non-secret service/profile/runtime/provider facts, current effective config facts, and Santi-owned provider/gateway reachability through `santi` HTTP APIs
-- orchestrate local `santi` lifecycle and active endpoint selection
-- own carrier-agnostic Santi profile catalogs and secret handoff for provider/profile switching orchestration, while applying those profiles through Santi-owned HTTP config atoms
-- publish Santi protocol discovery records to `stim-server`
-- publish registered-agent projections to `stim-server` through registration and heartbeat requests
-- expose management actions to the web app and `stim-dev` through HTTP service contracts
-
-Configured `santi` instances enter through the `apps/agents/` service boundary. The fallback single-instance path uses `STIM_AGENTS_SANTI_BASE_URL` / `SANTI_BASE_URL` plus optional label/profile/participant/delivery-endpoint environment, while multi-instance local loops can provide `STIM_AGENTS_SANTI_INSTANCES_JSON` as an array of `{ id, endpoint, label?, profile?, managed?, agent_id?, participant_id?, delivery_endpoint_id?, launch? }`.
-
-Managed launch is explicit orchestration. `launch` may provide `{ command, args?, cwd?, env? }`; the agents sidecar may spawn and stop that local process tree, but the resulting runtime/provider/session/tool/memory semantics still belong to the launched `santi` HTTP service.
-
-Provider profile catalogs and secret handoff belong to the agents sidecar rather than the Stim IM controller. A single `santi` soul can serve sessions carried by Stim, Feishu, Slack, local conversations, and other message carriers, so provider/profile orchestration must stay carrier-agnostic. Renderer code may choose a `profile_id` through an agents HTTP action, but must never send raw API keys or provider configs.
-
-That configuration and the current active instance selection are agents-sidecar concerns. Renderer code and `stim-dev` may observe and request explicit actions through the agents HTTP API, but they must not maintain their own instance registry or active-selection state.
-
-Chat routing should not read the local active instance as durable product truth. `stim-agents` publishes available agent instances and their delivery endpoints to `stim-server`; chat surfaces should choose product-visible participants from `stim-server` state, and controller delivery should resolve the selected `participant_id` through `stim-server`.
-
-It should not:
-
-- own `santi` provider/runtime/session/tool/memory atomic semantics
-- make the renderer or Stim IM controller own Santi provider profiles, API keys, or carrier-agnostic agent configuration
-- become the message-operation controller
-- store durable product IM ledger facts
-- become the product registered-agent source of truth
-- become a hidden data-management layer for the web app
-- move root workspace attachment assumptions into the child repo
-
-The renderer may use Tauri only to discover the current `agents` sidecar endpoint. It should then call the `agents` HTTP service directly for agent-instance management views and actions.
-
-The web app remains a renderer and service client: it renders state returned by `agents` and submits explicit actions, but it must not become the owner of agent-instance data management.
+This repo's renderer talks to the agents sidecar over HTTP only via [`@stim-io/agents-client`](https://github.com/stim-io/stim-packages/tree/main/packages/agents-client). It must not embed agent orchestration concerns, own provider profile catalogs, manage `santi` lifecycle, or duplicate the agents HTTP service contract. Chat surfaces should consume product-visible participants and selection events from `stim-server`; controller delivery should resolve the selected `participant_id` through `stim-server` rather than reading any local agent-instance registry as durable product truth.
 
 ## `apps/tauri/` ownership
 
@@ -320,16 +287,15 @@ It should not become:
 - the durable product IM message ledger owned by `stim-server`
 - a dumping ground for unrelated dev-only glue
 
-## `crates/` and `tools/` rule
+## `crates/` rule
 
-Prefer `crates/` for non-UI Rust support layers that are shared with the product/runtime code.
+Prefer `crates/` for non-UI Rust support layers that are shared by this repo's apps but specific to the IM product surface (delivery model, controller message-operation events, host inspection contracts, paths). Generic platform / sidecar primitives live in `../stim-crates/`, not here.
 
-Prefer `tools/` for repo-local Rust developer tooling and operational entrypoints that are not part of the main runtime/support-layer architecture.
+Repo-local Rust developer tooling and dev-loop orchestration moved out of this repo to the sibling [`stim-dev`](https://github.com/stim-io/stim-dev) binary; do not reintroduce a local `tools/` boundary.
 
 Current intended examples:
 
 - `crates/shared/`: non-UI shared Rust primitives
-- `tools/stim-dev/`: unified Rust development orchestration entrypoint
 
 ## Shared component rule
 
