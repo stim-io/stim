@@ -3620,6 +3620,7 @@ dependencies = [
  "serde",
  "serde_json",
  "stim-platform",
+ "tokio",
  "toml 0.8.23",
 ]
 
@@ -3633,6 +3634,7 @@ dependencies = [
  "stim-sidecar",
  "tauri",
  "tauri-build",
+ "tokio",
 ]
 
 [[package]]
