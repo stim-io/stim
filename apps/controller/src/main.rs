@@ -1,6 +1,6 @@
 use std::{env, thread, time::Duration};
 
-use stim_sidecar::{ready::SidecarReadyLine, stamp::read_stamp};
+use stim_sidecar::stamp::read_stamp;
 
 fn main() {
     if let Err(error) = run() {
@@ -29,18 +29,7 @@ fn run() -> Result<(), String> {
 fn serve(args: Vec<String>) -> Result<(), String> {
     let stamp = read_stamp(&args).map_err(|error| format!("invalid sidecar stamp: {error}"))?;
     let handle = stim_controller::spawn_local_controller(Some(&stamp.namespace))?;
-    let snapshot = handle.snapshot();
-    let ready_line = SidecarReadyLine::new(
-        stamp,
-        "controller-runtime".into(),
-        snapshot.instance_id.clone(),
-        snapshot.http_base_url.clone(),
-        snapshot.published_at.clone(),
-    );
-    let output = serde_json::to_string(&ready_line)
-        .map_err(|error| format!("failed to serialize ready line: {error}"))?;
-
-    println!("{output}");
+    stim_controller::install_sidecar_runtime(stamp, handle)?;
 
     loop {
         thread::sleep(Duration::from_secs(60));

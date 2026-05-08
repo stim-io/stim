@@ -1,3 +1,7 @@
+mod sidecar;
+
+pub use sidecar::install as install_sidecar_runtime;
+
 use std::{
     net::TcpListener,
     sync::{Arc, Mutex},
