@@ -3,6 +3,7 @@ import {
   StimAvatar,
   StimBadge,
   StimButton,
+  StimConversationRow,
   StimInline,
   StimInput,
   StimInteractiveRow,
@@ -10,6 +11,11 @@ import {
   StimStack,
   StimText,
 } from "@stim-io/components";
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconNewConversation,
+} from "@stim-io/icons";
 
 import type { SessionSummary } from "./types";
 
@@ -36,30 +42,33 @@ const emit = defineEmits<{
     class="session-drawer"
     :data-collapsed="collapsed ? 'true' : 'false'"
     data-probe="session-drawer"
-    border="subtle"
-    :inline-size="collapsed ? '4.25rem' : '18rem'"
-    :min-inline-size="collapsed ? '4.25rem' : '16rem'"
+    border="none"
+    :inline-size="collapsed ? '4.25rem' : '17rem'"
+    :min-inline-size="collapsed ? '4.25rem' : '15rem'"
     padding="sm"
     radius="none"
+    tone="muted"
   >
     <StimStack v-if="collapsed" align="center" gap="sm">
       <StimButton
         aria-label="Expand session drawer"
-        label="›"
         data-probe="session-drawer-toggle"
         size="sm"
         variant="ghost"
         @click="emit('toggleCollapse')"
-      />
+      >
+        <IconChevronRight size="sm" />
+      </StimButton>
 
       <StimButton
-        label="+"
         aria-label="New conversation"
         data-probe="new-conversation-button"
         size="sm"
-        variant="secondary"
+        variant="ghost"
         @click="emit('newConversation')"
-      />
+      >
+        <IconNewConversation size="sm" />
+      </StimButton>
 
       <StimStack data-probe="session-list" gap="xs">
         <StimInteractiveRow
@@ -86,134 +95,106 @@ const emit = defineEmits<{
       </StimStack>
     </StimStack>
 
-    <StimStack v-else gap="sm">
-      <StimInline justify="between">
-        <StimStack gap="none">
-          <StimText as="p" size="eyebrow" tone="secondary">stim</StimText>
-          <StimText
-            v-if="!collapsed"
-            as="h1"
-            data-probe="landing-title"
-            size="label"
-          >
-            Desktop messaging
-          </StimText>
-        </StimStack>
-        <StimInline gap="sm">
-          <StimBadge
-            v-if="!collapsed"
-            size="sm"
-            tone="muted"
-          >
-            {{ controllerStatus }}
-          </StimBadge>
-          <StimButton
-            :aria-label="
-              collapsed ? 'Expand session drawer' : 'Collapse session drawer'
-            "
-            :label="collapsed ? '›' : '‹'"
-            data-probe="session-drawer-toggle"
-            size="sm"
-            variant="ghost"
-            @click="emit('toggleCollapse')"
-          />
-        </StimInline>
+    <StimStack v-else gap="md">
+      <StimInline justify="between" align="center">
+        <StimText
+          as="span"
+          data-probe="landing-title"
+          size="body"
+          tone="primary"
+          weight="semibold"
+        >
+          Messages
+        </StimText>
+        <StimButton
+          aria-label="Collapse session drawer"
+          data-probe="session-drawer-toggle"
+          size="sm"
+          variant="ghost"
+          @click="emit('toggleCollapse')"
+        >
+          <IconChevronLeft size="sm" />
+        </StimButton>
       </StimInline>
 
-      <StimButton
-        label="+ New conversation"
-        aria-label="New conversation"
-        data-probe="new-conversation-button"
+      <StimInput
+        :model-value="sessionQuery"
+        data-probe="session-search-input"
+        placeholder="Search"
         size="sm"
-        variant="ghost"
-        @click="emit('newConversation')"
+        @update:model-value="emit('update:sessionQuery', $event)"
       />
 
-      <StimStack gap="sm">
-        <StimInput
-          :model-value="sessionQuery"
-          data-probe="session-search-input"
-          placeholder="Search sessions"
+      <StimInline gap="xs" wrap>
+        <StimButton
+          label="All"
+          :pressed="activeScope === 'all'"
+          data-probe="session-filter-all"
           size="sm"
-          @update:model-value="emit('update:sessionQuery', $event)"
+          :variant="activeScope === 'all' ? 'secondary' : 'ghost'"
+          @click="emit('update:activeScope', 'all')"
         />
+        <StimButton
+          label="Live"
+          :pressed="activeScope === 'live'"
+          data-probe="session-filter-live"
+          size="sm"
+          :variant="activeScope === 'live' ? 'secondary' : 'ghost'"
+          @click="emit('update:activeScope', 'live')"
+        />
+        <StimButton
+          label="Unread"
+          :pressed="activeScope === 'unread'"
+          data-probe="session-filter-unread"
+          size="sm"
+          :variant="activeScope === 'unread' ? 'secondary' : 'ghost'"
+          @click="emit('update:activeScope', 'unread')"
+        />
+      </StimInline>
 
-        <StimInline gap="xs" wrap>
-          <StimButton
-            label="All"
-            :pressed="activeScope === 'all'"
-            data-probe="session-filter-all"
-            size="sm"
-            :variant="activeScope === 'all' ? 'secondary' : 'ghost'"
-            @click="emit('update:activeScope', 'all')"
-          />
-          <StimButton
-            label="Live"
-            :pressed="activeScope === 'live'"
-            data-probe="session-filter-live"
-            size="sm"
-            :variant="activeScope === 'live' ? 'secondary' : 'ghost'"
-            @click="emit('update:activeScope', 'live')"
-          />
-          <StimButton
-            label="Unread"
-            :pressed="activeScope === 'unread'"
-            data-probe="session-filter-unread"
-            size="sm"
-            :variant="activeScope === 'unread' ? 'secondary' : 'ghost'"
-            @click="emit('update:activeScope', 'unread')"
-          />
-        </StimInline>
-      </StimStack>
+      <StimInline justify="between" align="center">
+        <StimButton
+          aria-label="New conversation"
+          data-probe="new-conversation-button"
+          size="sm"
+          variant="ghost"
+          @click="emit('newConversation')"
+        >
+          <IconNewConversation size="sm" />
+          New conversation
+        </StimButton>
+        <StimBadge size="sm" tone="muted">
+          {{ controllerStatus }}
+        </StimBadge>
+      </StimInline>
 
-      <StimStack data-probe="session-list" gap="xs">
+      <StimStack data-probe="session-list" gap="none">
         <StimText
           v-if="sessions.length === 0"
           as="p"
           data-probe="session-list-empty"
           size="caption"
-          tone="secondary"
+          tone="tertiary"
         >
           No sessions match the current filter.
         </StimText>
-        <StimInteractiveRow
+        <StimConversationRow
           v-for="session in sessions"
           :key="session.id"
-          :active="session.id === activeSessionId"
-          :aria-label="session.title"
+          :name="session.title"
+          :preview="session.preview"
+          :time-label="session.activityLabel"
+          :unread-count="session.unreadCount"
+          :selected="session.id === activeSessionId"
+          :avatar-label="session.participantLabel"
+          :avatar-tone="session.id === activeSessionId ? 'accent' : 'default'"
           :data-probe="
             session.id === activeSessionId ? 'active-session-item' : undefined
           "
           :data-session-id="session.id"
-          padding="sm"
-          radius="sm"
-          tone="accent"
+          :aria-label="session.title"
           @click="emit('select', session.id)"
-        >
-          <StimAvatar
-            :label="session.participantLabel"
-            tone="muted"
-            size="sm"
-          />
-
-          <StimStack grow gap="none">
-            <StimInline justify="between" gap="sm">
-              <StimText as="span" size="label" truncate>
-                {{ session.title }}
-              </StimText>
-              <StimText as="span" size="caption" tone="secondary" truncate>
-                {{ session.activityLabel }}
-              </StimText>
-            </StimInline>
-            <StimText as="p" size="caption" tone="secondary" truncate>
-              {{ session.preview }}
-            </StimText>
-          </StimStack>
-
-          <StimBadge v-if="session.unreadCount > 0" tone="accent" size="sm">
-            {{ session.unreadCount }}
-          </StimBadge>
-        </StimInteractiveRow>
+        />
       </StimStack>
     </StimStack>
   </StimPane>

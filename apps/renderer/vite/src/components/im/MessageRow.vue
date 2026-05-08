@@ -5,25 +5,34 @@ import { computed } from "vue";
 import MessageCard from "../MessageCard.vue";
 import type { ChatMessage } from "./types";
 
+// Dev-flavor labels emitted by the live chat model for observability
+// ("Controller reply", "Delivered to controller", etc.) should not surface
+// in the product UI — the bubble itself is proof of delivery. Only sending /
+// failed transitions warrant a visible label.
+const DEV_OBSERVABILITY_LABELS = new Set([
+  "Sent",
+  "Controller reply",
+  "Controller reply streaming",
+  "Delivered to controller",
+  "Controller operation running",
+]);
+
 const props = defineProps<{
   message: ChatMessage;
 }>();
 
-const isUser = computed(() => props.message.role === "user");
 const deliveryLabel = computed(() => {
-  if (!isUser.value) {
-    return props.message.metaLabel ?? null;
-  }
-
   if (props.message.deliveryState === "sending") {
     return "Sending…";
   }
-
   if (props.message.deliveryState === "failed") {
     return "Failed to send";
   }
-
-  return props.message.metaLabel ?? "Sent";
+  const raw = props.message.metaLabel;
+  if (!raw || DEV_OBSERVABILITY_LABELS.has(raw)) {
+    return null;
+  }
+  return raw;
 });
 
 const deliveryTone = computed(() =>
