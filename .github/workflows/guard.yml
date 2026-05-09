@@ -47,12 +47,6 @@ jobs:
           repository: stim-io/stim-crates
           path: stim-crates
 
-      - name: Checkout stim-guard
-        uses: actions/checkout@v6
-        with:
-          repository: stim-io/stim-guard
-          path: stim-guard
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -89,6 +83,12 @@ jobs:
       - name: Build stim agents-client package
         working-directory: stim-packages
         run: pnpm -C packages/agents-client build
+
+      - name: Install flavor
+        run: |
+          curl -fsSL https://pub-86db96420d0543db99527606c10f62ba.r2.dev/stable/versions/v0.1.0/install.sh \
+            | sh -s -- install --version v0.1.0 --public-url https://pub-86db96420d0543db99527606c10f62ba.r2.dev
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
