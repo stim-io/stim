@@ -7,7 +7,7 @@
     "build:renderer": "pnpm -C apps/renderer/vite build",
     "format:check": "pnpm exec prettier --check .",
     "guard": "cargo fmt --all --check && cargo test -p stim-shared -p stim-controller && pnpm run typecheck:renderer && pnpm run guard:style",
-    "guard:style": "cargo run --locked --manifest-path ../stim-guard/Cargo.toml -- check --root . --config stim-guard.json",
+    "guard:style": "flavor check --root . --config flavor.json",
     "typecheck:renderer": "pnpm -C apps/renderer/vite typecheck"
   },
   "devDependencies": {

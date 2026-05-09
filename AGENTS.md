@@ -51,7 +51,7 @@ Detailed framework and product thinking belongs in `docs/`, not here.
 - Format workspace: `pnpm exec prettier --write .`
 - Check formatting: `pnpm exec prettier --check .`
 - Run repo guard: `pnpm run guard` (Rust fmt/controller-tool tests plus client and renderer typechecks)
-- Run codestyle attribute guard: `cargo run --locked --manifest-path ../stim-guard/Cargo.toml -- check --root . --config stim-guard.json` or `pnpm run guard:style`
+- Run code flavor guard: `flavor check --root . --config flavor.json` or `pnpm run guard:style`
 - Detect standalone prerequisites and next-step hints: `stim-dev detect`
 - Run controller-owned machine acceptance for messaging: `stim-dev accept controller messaging [text]`
 - Run controller-owned machine acceptance for tool activity visibility: `stim-dev accept controller tool-activity [text]`
