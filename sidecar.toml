@@ -1,0 +1,53 @@
+[project]
+name = "stim"
+namespace = "default"
+root = "."
+data_dir = ".tmp/sidecar/{namespace}"
+
+[[sidecars]]
+name = "agents"
+command = "cargo"
+args = ["run", "--manifest-path", "../stim-agents/apps/sidecar/Cargo.toml", "--", "serve"]
+cwd = "."
+mode = "dev"
+inspect_socket = "unix:///tmp/sidecar-{project}-{namespace}-{name}.sock"
+endpoint_env = "STIM_AGENTS_ENDPOINT"
+ready = { role = "agents-runtime", timeout_secs = 120 }
+
+[[sidecars]]
+name = "controller"
+command = "cargo"
+args = ["run", "--manifest-path", "Cargo.toml", "-p", "stim-controller", "--", "serve"]
+cwd = "."
+mode = "dev"
+inspect_socket = "unix:///tmp/sidecar-{project}-{namespace}-{name}.sock"
+endpoint_env = "STIM_CONTROLLER_ENDPOINT"
+ready = { role = "controller-runtime", timeout_secs = 120 }
+
+[[sidecars]]
+name = "renderer"
+command = "cargo"
+args = ["run", "--manifest-path", "Cargo.toml", "-p", "stim-renderer", "--", "serve", "--dev", "--force"]
+cwd = "."
+mode = "dev"
+endpoint_env = "STIM_RENDERER_URL"
+health_url = "http://127.0.0.1:1420"
+ready = { role = "renderer-delivery", timeout_secs = 120 }
+
+[app]
+name = "tauri"
+command = "pnpm"
+args = ["tauri", "dev"]
+cwd = "apps/tauri"
+mode = "dev"
+stamp_via_env = true
+inspect_socket = "unix:///tmp/sidecar-{project}-{namespace}-{name}.sock"
+health_url = "http://127.0.0.1:1420"
+ready = { role = "tauri-runtime", timeout_secs = 120 }
+inherits_env = [
+  { name = "STIM_AGENTS_ENDPOINT", from = "agents.endpoint" },
+  { name = "STIM_AGENTS_INSTANCE_ID", from = "agents.instance_id" },
+  { name = "STIM_CONTROLLER_ENDPOINT", from = "controller.endpoint" },
+  { name = "STIM_CONTROLLER_INSTANCE_ID", from = "controller.instance_id" },
+  { name = "STIM_RENDERER_URL", from = "renderer.endpoint" },
+]

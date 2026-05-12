@@ -92,7 +92,7 @@ pub fn poll_renderer_action_requests<R: Runtime>(app: &AppHandle<R>) -> Result<(
     Ok(())
 }
 
-fn request_renderer_action<R: Runtime>(
+pub fn request_renderer_action<R: Runtime>(
     app: &AppHandle<R>,
     request: &RendererActionBridgeRequest,
 ) -> Result<RendererActionResult, String> {

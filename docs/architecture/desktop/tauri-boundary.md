@@ -15,7 +15,7 @@ That shell exists to:
 
 It does not exist to become the primary business protocol layer.
 
-When `apps/packaged/` is introduced, Tauri should still be understood as the desktop host authority, but it may be launched and managed as a stamped sidecar app instance by the packaged launcher or by `stim-dev`.
+Tauri should still be understood as the desktop host authority, but it may be launched and managed as a stamped sidecar app instance by the packaged launcher or by the external `sidecar` CLI.
 
 ## Quick reading guide
 
@@ -127,7 +127,7 @@ Do not use IPC as a shortcut business API between the web app and a local sideca
 
 Agents management follows this rule. The Tauri host may expose the current `agents` endpoint, but the renderer should use the `agents` HTTP API for `santi` instance management/perception, including active instance selection.
 
-Controller message-operation events follow this rule. The Tauri host may expose the current controller endpoint, but the renderer and `stim-dev` should use the controller WebSocket for message-operation commands and events. See `../../contracts/controller/message-operation-events.md`.
+Controller message-operation events follow this rule. The Tauri host may expose the current controller endpoint, but the renderer and provider-owned inspect events should use the controller WebSocket for message-operation commands and events. See `../../contracts/controller/message-operation-events.md`.
 
 ## Sidecar/runtime rule
 

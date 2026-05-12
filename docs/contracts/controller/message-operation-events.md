@@ -6,7 +6,7 @@ This contract defines the controller-owned message-operation event layer for `st
 
 The controller event layer exists to cover, debug, and accept the user's local operation boundary.
 
-It should make `stim-dev` and the renderer able to observe a complete operation path:
+It should make provider-owned `sidecar inspect` events and the renderer able to observe a complete operation path:
 
 - command accepted or rejected
 - delivery target resolved from direct endpoint or server-owned participant selection
@@ -24,7 +24,7 @@ This layer is for local app-loop coverage and acceptance. It is not the durable 
 
 `apps/controller/` owns this event layer.
 
-`stim-dev` may drive it directly for machine-gated acceptance. The renderer may subscribe to it for product projection. The Tauri host may publish or discover the controller endpoint, but Tauri IPC must not become the business transport for these events.
+Provider-owned inspect events may drive it directly for machine-gated acceptance. The renderer may subscribe to it for product projection. The Tauri host may publish or discover the controller endpoint, but Tauri IPC must not become the business transport for these events.
 
 `stim-server` product-ledger events remain a separate layer owned by `stim-server`. `santi` runtime/provider events remain a separate layer owned by `santi`. Controller events may correlate to both, but they do not replace either.
 
@@ -95,15 +95,17 @@ UI actions may produce controller commands, but the controller contract should d
 
 ## Acceptance rule
 
-`stim-dev` acceptance should use controller events and controller snapshots as the primary machine-gated path.
+Controller-owned inspect acceptance should use controller events and controller snapshots as the primary machine-gated path.
 
 The current local acceptance command is:
 
-- `stim-dev accept controller messaging [text]`
-- `stim-dev accept controller participant-routing [text]`
-- `stim-dev accept controller tool-activity [text]`
+- `sidecar inspect controller accept.messaging [payload] --config sidecar.toml --inspect-timeout 60`
+- `sidecar inspect controller accept.participant-routing [payload] --config sidecar.toml --inspect-timeout 60`
+- `sidecar inspect controller accept.tool-activity [payload] --config sidecar.toml --inspect-timeout 60`
 
-It should prove conversation continuation, not only first-send transport: create/send the first turn, restart/reload the transcript, send a second turn into the same conversation asking the assistant to quote the prior user text, restart/reload again, then assert both user turns, assistant replies, and the final assistant's reference to the prior user text are present.
+It should prove conversation continuation, not only first-send transport: create/send the first turn, reload the transcript, send a second turn into the same conversation asking the assistant to quote the prior user text, reload again, then assert both user turns, assistant replies, and the final assistant's reference to the prior user text are present.
+
+Provider-owned inspect events run inside the active controller provider. Lifecycle recovery checks should compose explicit `sidecar restart controller --config sidecar.toml` steps around those events rather than making the provider kill or relaunch itself.
 
 Renderer smoke should validate UI projection only:
 
@@ -152,7 +154,7 @@ Do not introduce these shapes:
 
 The controller event layer is healthy when a local operation can be driven and diagnosed without confusing ledger ownership:
 
-1. `stim-dev` sends an operation command over the controller WebSocket.
+1. A controller-owned inspect event sends an operation command over the controller WebSocket.
 2. Controller events identify each stage and failure point with correlation ids.
 3. Controller snapshots prove the expected local projection after restart/reload.
 4. Controller snapshots expose minimal runtime tool activity summaries when a turn used tools.

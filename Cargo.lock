@@ -3630,6 +3630,7 @@ name = "stim-tauri"
 version = "0.1.0"
 dependencies = [
  "objc2-app-kit",
+ "serde",
  "serde_json",
  "stim-shared",
  "stim-sidecar",

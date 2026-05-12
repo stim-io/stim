@@ -1,12 +1,12 @@
 //! SidecarRuntime adoption for the standalone controller binary.
 //!
 //! Mirrors `apps/tauri/src-tauri/src/sidecar_runtime.rs`: bind a
-//! TCP listener via `stim_sidecar::runtime::bind`, emit a
-//! `stim-sidecar-ready` line carrying the bound address as
+//! runtime socket via `stim_sidecar::runtime::bind`, emit a
+//! `stim-sidecar-ready` line carrying the bound endpoint as
 //! `runtime_endpoint`, then spawn a side thread that runs
 //! `runtime::serve` on its own multi-threaded tokio runtime.
 //!
-//! Exposes `controller-runtime` and `controller-heartbeat` as
+//! Exposes concise indexed inspect events as
 //! event verbs sourced directly from the in-process
 //! `ControllerServiceHandle`. Unknown verbs return
 //! `not_implemented` per the SidecarRuntime contract.
@@ -41,14 +41,13 @@ pub fn install(stamp: SidecarStamp, handle: ControllerServiceHandle) -> Result<(
             }
         };
 
-        let (addr, listener) = match serve_runtime.block_on(runtime::bind()) {
+        let (runtime_endpoint, listener) = match serve_runtime.block_on(runtime::bind()) {
             Ok(bound) => bound,
             Err(error) => {
                 let _ = ready_sender.send(Err(format!("sidecar bind: {error}")));
                 return;
             }
         };
-        let runtime_endpoint = format!("127.0.0.1:{}", addr.port());
         if let Err(error) = publish_ready_line(stamp, &handle, runtime_endpoint) {
             let _ = ready_sender.send(Err(error));
             return;
@@ -94,8 +93,23 @@ fn build_handler(handle: ControllerServiceHandle) -> ClosureHandler<EventFn> {
         let handle = handle.clone();
         Box::pin(async move {
             match verb.as_str() {
-                "controller-runtime" => Ok(json!(handle.snapshot())),
-                "controller-heartbeat" => Ok(json!(handle.heartbeat())),
+                "capabilities" => Ok(json!({
+                    "events": [
+                        "capabilities",
+                        "runtime.snapshot",
+                        "runtime.heartbeat",
+                        "accept.messaging",
+                        "accept.participant-routing",
+                        "accept.tool-activity"
+                    ]
+                })),
+                "runtime.snapshot" => Ok(json!(handle.snapshot())),
+                "runtime.heartbeat" => Ok(json!(handle.heartbeat())),
+                "accept.messaging" | "accept.participant-routing" | "accept.tool-activity" => {
+                    crate::service::run_acceptance_event(handle.http_state(), &verb, _payload)
+                        .await
+                        .map_err(EventError::internal)
+                }
                 other => Err(EventError::not_implemented(other)),
             }
         }) as EventFuture

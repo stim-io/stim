@@ -76,7 +76,7 @@ pub fn spawn_local_controller(namespace: Option<&str>) -> Result<ControllerServi
         registered_endpoint_ids: registered_endpoint_ids.clone(),
         self_discovery: discovery_fixture.self_discovery.clone(),
     };
-    let app = build_router(app_state);
+    let app = build_router(app_state.clone());
 
     let snapshot_for_thread = snapshot.clone();
     let heartbeat_for_thread = heartbeat.clone();
@@ -132,5 +132,6 @@ pub fn spawn_local_controller(namespace: Option<&str>) -> Result<ControllerServi
     Ok(ControllerServiceHandle {
         snapshot,
         heartbeat,
+        http_state: app_state,
     })
 }

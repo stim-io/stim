@@ -57,7 +57,7 @@ stim/
 - `crates/` holds non-UI Rust support layers that remain product-client local
 - `../stim-crates/` owns reusable platform and sidecar infrastructure consumed by this repo
 - `../stim-agents/` owns the local agent-instance management sidecar; this repo's renderer talks to it over HTTP and does not embed agent orchestration
-- `../stim-dev/` owns the dev-loop CLI binary; install it via `cargo install --path ../stim-dev --force`
+- external `sidecar` owns local dev-loop lifecycle/inspect routing through `sidecar.toml`
 - `docs/` is the durable architecture/contract/operations boundary
 
 The internal Tauri `src-tauri/` directory is treated as an implementation detail of `apps/tauri/`, not as the repo's top-level architecture shape.
@@ -73,7 +73,7 @@ The only valid sidecar-mode values are:
 
 Do not use `runtime-mode` for this concept; that name conflicts with the `runtime` enum value and makes launcher mode ambiguous.
 
-`stim` consumes low-level platform facts from sibling `../stim-dev/crates/platform`:
+`stim` consumes low-level platform facts from sibling `../stim-crates/crates/platform`:
 
 - path derivation
 - process spawning and process table access
@@ -84,7 +84,7 @@ Do not use `runtime-mode` for this concept; that name conflicts with the `runtim
 
 That platform crate must not own sidecar identity, app lifecycle policy, controller attach targets, inspection schemas, or business protocol behavior.
 
-`stim` consumes local sidecar control-plane primitives from sibling `../stim-dev/crates/sidecar`:
+`stim` consumes local sidecar control-plane primitives from sibling `../stim-crates/crates/sidecar`:
 
 - namespace defaults
 - sidecar app identity
@@ -124,7 +124,7 @@ It should not:
 - own business protocol behavior
 - proxy controller HTTP APIs
 - maintain a persistent runtime registry
-- duplicate `stim-dev` operator-only commands
+- duplicate external `sidecar` operator-only commands
 
 The executable surface is intentionally thin:
 
@@ -136,7 +136,7 @@ The executable surface is intentionally thin:
 
 Each launch path waits for a live ready line, validates the 4-field stamp plus live role, prints readiness, and then waits on the child or runner process. The hidden runners are implementation details used to keep third-party tool argv clean while preserving stamped process-tree cleanup.
 
-Tauri should load the renderer through a URL supplied by launcher-owned launch configuration. Packaged and dev composition write the renderer-delivery launch bridge under `.tmp/sidecars/<sidecar-mode>/<namespace>/bridges/renderer-delivery/launch.json`; the Tauri host reads it without treating it as persisted runtime truth.
+Tauri should load the renderer through a URL supplied by launcher-owned launch configuration. Dev composition injects `STIM_RENDERER_URL` from `sidecar.toml` readiness inheritance; packaged composition may use the same env path or its packaged launch bridge while the runtime launcher is being narrowed.
 
 ## `apps/renderer/` ownership
 
@@ -291,7 +291,7 @@ It should not become:
 
 Prefer `crates/` for non-UI Rust support layers that are shared by this repo's apps but specific to the IM product surface (delivery model, controller message-operation events, host inspection contracts, paths). Generic platform / sidecar primitives live in `../stim-crates/`, not here.
 
-Repo-local Rust developer tooling and dev-loop orchestration moved out of this repo to the sibling [`stim-dev`](https://github.com/stim-io/stim-dev) binary; do not reintroduce a local `tools/` boundary.
+Repo-local Rust developer tooling and dev-loop orchestration moved out of this repo to the external [`sidecar`](https://github.com/PerishCode/sidecar) CLI plus provider-owned inspect events; do not reintroduce a local `tools/` or runner boundary.
 
 Current intended examples:
 
