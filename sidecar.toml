@@ -37,7 +37,7 @@ ready = { role = "renderer-delivery", timeout_secs = 120 }
 [app]
 name = "tauri"
 command = "pnpm"
-args = ["tauri", "dev"]
+args = ["exec", "tauri", "dev"]
 cwd = "apps/tauri"
 mode = "dev"
 stamp_via_env = true

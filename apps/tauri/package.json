@@ -3,9 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "tauri": "tauri"
+    "tauri": "tsx scripts/tauri.ts"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.10.1"
+    "@tauri-apps/cli": "^2.10.1",
+    "tsx": "^4.21.0"
   }
 }

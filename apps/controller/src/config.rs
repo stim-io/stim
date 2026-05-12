@@ -77,7 +77,7 @@ pub(crate) fn resolve_santi_base_url() -> Result<(String, TargetResolution), Str
     }
 
     Err(format!(
-        "santi unavailable: set SANTI_BASE_URL or run local santi at {} with root `scripts/santi local`",
+        "santi unavailable: set SANTI_BASE_URL or run local santi at {} with `cargo run -p santi-api` from modules/santi/",
         DEFAULT_COMPOSE_SANTI_BASE_URL
     ))
 }
