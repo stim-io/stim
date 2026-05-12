@@ -23,5 +23,16 @@
       "packages/client/src/gen/**"
     ]
   },
-  "overrides": []
+  "overrides": [
+    {
+      "match": "apps/controller/src/service",
+      "kind": "dir",
+      "rules": {
+        "core/fs/too-many-children": {
+          "enabled": false,
+          "reason": "controller service owns separate operation and acceptance modules; collapsing them would hide boundary pressure"
+        }
+      }
+    }
+  ]
 }

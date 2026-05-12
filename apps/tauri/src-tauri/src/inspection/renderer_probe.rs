@@ -89,7 +89,7 @@ pub fn poll_renderer_probe_requests<R: Runtime>(app: &AppHandle<R>) -> Result<()
     Ok(())
 }
 
-fn request_renderer_probe<R: Runtime>(
+pub fn request_renderer_probe<R: Runtime>(
     app: &AppHandle<R>,
     request: &RendererProbeBridgeRequest,
 ) -> Result<RendererProbeResult, String> {

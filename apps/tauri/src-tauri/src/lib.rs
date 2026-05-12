@@ -44,7 +44,7 @@ fn create_main_window<R: tauri::Runtime>(app: &mut tauri::App<R>) -> tauri::Resu
 }
 
 fn renderer_launch_url() -> Option<String> {
-    // Preferred path: env var injected by stim-dev's manifest
+    // Preferred path: env var injected by sidecar's manifest
     // `inherits_env` machinery (or by the user / Tauri devCommand
     // when launching standalone). Single source of truth, no
     // file IPC.
@@ -56,8 +56,8 @@ fn renderer_launch_url() -> Option<String> {
     }
 
     // Legacy fallback: read the renderer-delivery bridge file
-    // stim-dev writes for back-compat. Will be removed once the
-    // bridge writer is dropped from stim-dev (transitional).
+    // older launcher paths wrote for back-compat. This can be
+    // removed once the bridge writer is gone from all launchers.
     let namespace = std::env::var(stim_sidecar::identity::SIDECAR_NAMESPACE_ENV)
         .ok()
         .map(|value| value.trim().to_string())

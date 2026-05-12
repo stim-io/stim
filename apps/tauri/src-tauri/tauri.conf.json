@@ -4,7 +4,6 @@
   "version": "0.1.0",
   "identifier": "io.stim.app",
   "build": {
-    "beforeDevCommand": "pnpm --dir ../renderer/vite dev --host 127.0.0.1 --port 1420",
     "beforeBuildCommand": "pnpm --dir ../renderer/vite build",
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../renderer/vite/dist"

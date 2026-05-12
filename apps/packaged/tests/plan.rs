@@ -34,10 +34,10 @@ fn plan_models_sidecars() {
     assert!(plan.sidecars.iter().all(|sidecar| sidecar
         .stamp_args
         .iter()
-        .any(|arg| arg == "--stim-stamp-mode=runtime")));
+        .any(|arg| arg == "--sidecar-stamp-mode=runtime")));
     assert!(plan.sidecars.iter().all(|sidecar| sidecar
         .stamp_args
         .iter()
-        .all(|arg| !arg.starts_with("--stim-stamp-role")
-            && !arg.starts_with("--stim-stamp-instance"))));
+        .all(|arg| !arg.starts_with("--sidecar-stamp-role")
+            && !arg.starts_with("--sidecar-stamp-instance"))));
 }

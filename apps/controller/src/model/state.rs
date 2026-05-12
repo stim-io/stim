@@ -7,6 +7,7 @@ use stim_shared::control_plane::{ControllerRuntimeHeartbeat, ControllerRuntimeSn
 pub struct ControllerServiceHandle {
     pub(crate) snapshot: Arc<Mutex<ControllerRuntimeSnapshot>>,
     pub(crate) heartbeat: Arc<Mutex<ControllerRuntimeHeartbeat>>,
+    pub(crate) http_state: ControllerHttpState,
 }
 
 impl ControllerServiceHandle {
@@ -16,6 +17,10 @@ impl ControllerServiceHandle {
 
     pub fn heartbeat(&self) -> ControllerRuntimeHeartbeat {
         self.heartbeat.lock().expect("heartbeat poisoned").clone()
+    }
+
+    pub(crate) fn http_state(&self) -> ControllerHttpState {
+        self.http_state.clone()
     }
 }
 

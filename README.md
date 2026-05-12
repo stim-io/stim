@@ -17,8 +17,9 @@ Sibling repos consumed via path deps from this workspace:
 - [`stim-crates`](https://github.com/stim-io/stim-crates): shared `stim-platform` + `stim-sidecar` primitives.
 - [`stim-proto`](https://github.com/stim-io/stim-proto): protocol contract types.
 - [`stim-packages`](https://github.com/stim-io/stim-packages): `@stim-io/components`, `@stim-io/icons`, `@stim-io/client`, `@stim-io/agents-client`.
-- [`stim-dev`](https://github.com/stim-io/stim-dev): the local dev-loop CLI; install via `cargo install --path ../stim-dev --force`.
 - [`stim-agents`](https://github.com/stim-io/stim-agents): the agent-orchestration sidecar + standalone Tauri product.
+
+Local lifecycle and inspect flows use the external [`sidecar`](https://github.com/PerishCode/sidecar) CLI against this repo's `sidecar.toml`.
 
 - `AGENTS.md`: stable repo boundary and key file index
 - `docs/operations/documentation.md`: documentation method

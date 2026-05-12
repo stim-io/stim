@@ -1,3 +1,4 @@
+mod acceptance;
 mod operation_events;
 mod operation_flow;
 mod operation_product;
@@ -7,6 +8,7 @@ mod operation_stream;
 mod operation_target;
 pub(crate) mod roundtrip;
 
+pub(crate) use acceptance::run_acceptance_event;
 pub(crate) use operation_events::{
     command_decode_failed_event, operation_event, unsupported_schema_event, OperationEventEmitter,
     OperationEventPayload,

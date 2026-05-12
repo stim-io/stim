@@ -56,6 +56,152 @@ pub(super) fn spawn_test_santi_server() -> String {
     spawn_santi_fail_server(0)
 }
 
+pub(super) fn spawn_acceptance_santi_server(first_text: &str, followup_text: &str) -> String {
+    let std_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let local_addr = std_listener.local_addr().unwrap();
+    std_listener.set_nonblocking(true).unwrap();
+    let first_text = first_text.to_string();
+    let followup_text = followup_text.to_string();
+
+    thread::spawn(move || {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async move {
+            let listener = tokio::net::TcpListener::from_std(std_listener).unwrap();
+            let first_for_reply = first_text.clone();
+            let first_for_snapshot = first_text.clone();
+            let followup_for_snapshot = followup_text.clone();
+            let app = Router::new()
+                .route("/api/v1/health", get(|| async { Json("ok") }))
+                .route(
+                    "/api/v1/stim/envelopes",
+                    post(|Json(envelope): Json<MessageEnvelope>| async move {
+                        Json(ProtocolSubmission {
+                            acknowledgement: ProtocolAcknowledgement {
+                                ack_envelope_id: format!("ack-{}", envelope.envelope_id),
+                                ack_message_id: envelope.message_id.clone(),
+                                ack_version: envelope.new_version,
+                                ack_result: AcknowledgementResult::Applied,
+                                detail: Some(format!(
+                                    "santi session {} applied",
+                                    envelope.conversation_id
+                                )),
+                            },
+                            reply: matches!(envelope.operation, stim_proto::MessageOperation::Fix)
+                                .then(|| ReplyHandle {
+                                    reply_id: "reply-acceptance".into(),
+                                    conversation_id: envelope.conversation_id,
+                                    message_id: envelope.message_id,
+                                    status: ReplyStatus::Pending,
+                                }),
+                        })
+                    }),
+                )
+                .route(
+                    "/api/v1/stim/replies/{reply_id}/events",
+                    get(move || {
+                        let first = first_for_reply.clone();
+                        async move {
+                            let delta = format!("quoted prior text: {first}");
+                            let event = serde_json::json!({
+                                "reply_id": "reply-acceptance",
+                                "sequence": 1,
+                                "event": { "type": "output_text_delta", "delta": delta }
+                            });
+                            let completed = serde_json::json!({
+                                "reply_id": "reply-acceptance",
+                                "sequence": 2,
+                                "event": { "type": "completed" }
+                            });
+                            let body =
+                                format!("data: {event}\n\ndata: {completed}\n\ndata: [DONE]\n\n");
+                            ([("content-type", "text/event-stream")], body)
+                        }
+                    }),
+                )
+                .route(
+                    "/api/v1/stim/replies/{reply_id}",
+                    get({
+                        let first = first_text.clone();
+                        move || {
+                            let first = first.clone();
+                            async move {
+                                Json(ReplySnapshot {
+                                    reply_id: "reply-acceptance".into(),
+                                    conversation_id: "conv-acceptance".into(),
+                                    message_id: "msg-acceptance".into(),
+                                    status: ReplyStatus::Completed,
+                                    output_text: format!("quoted prior text: {first}"),
+                                    error: None,
+                                })
+                            }
+                        }
+                    }),
+                )
+                .route(
+                    "/api/v1/sessions/{session_id}/messages",
+                    get(move || {
+                        let first = first_for_snapshot.clone();
+                        let followup = followup_for_snapshot.clone();
+                        async move {
+                            Json(serde_json::json!({
+                                "messages": [
+                                    {
+                                        "id": "msg-user-1",
+                                        "actor_type": "account",
+                                        "actor_id": "endpoint-a",
+                                        "session_seq": 1,
+                                        "content_text": first.clone(),
+                                        "state": "fixed",
+                                        "created_at": "2026-04-30T00:00:00Z"
+                                    },
+                                    {
+                                        "id": "msg-assistant-1",
+                                        "actor_type": "soul",
+                                        "actor_id": "soul_default",
+                                        "session_seq": 2,
+                                        "content_text": "first reply",
+                                        "state": "fixed",
+                                        "created_at": "2026-04-30T00:00:01Z"
+                                    },
+                                    {
+                                        "id": "msg-user-2",
+                                        "actor_type": "account",
+                                        "actor_id": "endpoint-a",
+                                        "session_seq": 3,
+                                        "content_text": followup,
+                                        "state": "fixed",
+                                        "created_at": "2026-04-30T00:00:02Z"
+                                    },
+                                    {
+                                        "id": "msg-assistant-2",
+                                        "actor_type": "soul",
+                                        "actor_id": "soul_default",
+                                        "session_seq": 4,
+                                        "content_text": format!("quoted prior text: {first}"),
+                                        "state": "fixed",
+                                        "created_at": "2026-04-30T00:00:03Z"
+                                    }
+                                ]
+                            }))
+                        }
+                    }),
+                )
+                .route(
+                    "/api/v1/sessions/{session_id}/tool-activities",
+                    get(|| async move {
+                        Json(serde_json::json!({
+                            "tool_activities": []
+                        }))
+                    }),
+                );
+
+            axum::serve(listener, app).await.unwrap();
+        });
+    });
+
+    format!("http://{local_addr}")
+}
+
 pub(super) fn spawn_santi_fail_server(transient_transcript_failures: usize) -> String {
     spawn_santi_flaky_server(transient_transcript_failures, StatusCode::BAD_GATEWAY)
 }
